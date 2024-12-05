@@ -32,8 +32,12 @@ type IFieldMeta interface {
 type Field[V any, Meta IFieldMeta, TablePtr any] struct {
 	Value V
 
-	meta [0]Meta
-	_    [0]TablePtr
+	meta  [0]Meta
+	table [0]TablePtr
+}
+
+func (field Field[V, Meta, TablePtr]) __sqlxfield__tabletype() reflect.Type {
+	return reflect.TypeOf(field.table).Elem().Elem()
 }
 
 func (field Field[V, M, T]) __sqlxfield__metatype() reflect.Type {
@@ -46,6 +50,7 @@ func (field *Field[V, M, T]) SqlField() *SqlField {
 
 type ifaceField interface {
 	__sqlxfield__metatype() reflect.Type
+	__sqlxfield__tabletype() reflect.Type
 }
 
 var typeofIfaceField = reflect.TypeOf((*ifaceField)(nil)).Elem()

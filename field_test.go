@@ -48,13 +48,11 @@ var (
 )
 
 func init() {
-	mktypeinfo(reflect.TypeOf(Article{}))
-	mktypeinfo(reflect.TypeOf(User{}))
+	RegisterTypeByValue(Article{}, User{})
 }
 
 func TestRef(t *testing.T) {
-	fmt.Println(typeofUserId)
-	fmt.Println(typeofArticleId)
+	fmt.Println(QuerySqlField(typeofArticleId) != nil)
 	fmt.Println(QuerySqlField(typeofArticleId) == article.Id.SqlField())
 	fmt.Println(QuerySqlField(typeofUserId) == user.Id.SqlField())
 	fmt.Println(QuerySqlField(typeofUserId) != article.Id.SqlField())

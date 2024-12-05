@@ -1,6 +1,10 @@
 package sqltypes
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/zzztttkkk/sqlx"
+)
 
 type pair struct {
 	key string
@@ -62,4 +66,9 @@ func (tc *typeCommon[T, Self]) Options(k string, v string) *Self {
 	}
 	tc.opts[k] = v
 	return tc.self()
+}
+
+func (tc *typeCommon[T, Self]) Build() sqlx.SqlField {
+	obj := sqlx.SqlField{}
+	return obj
 }
