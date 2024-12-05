@@ -36,20 +36,29 @@ type User struct {
 	Name Field[string, nameMeta, *User]
 }
 
-func TestRef(t *testing.T) {
-	utype := reflect.TypeOf(User{})
-	info := mktypeinfo(utype)
-	fmt.Println(info)
-	fmt.Println(fieldinfos)
-
-	var user User
-	fmt.Println(user.Id.SqlField(), typeofUser, typeofIdMeta)
+type Article struct {
+	CommonMix[*Article]
 }
 
 var (
-	typeofUser   = reflect.TypeOf(User{})
-	typeofIdMeta = reflect.TypeOf(idMeta(0))
+	user            User
+	article         Article
+	typeofUserId    = reflect.TypeOf(user.Id)
+	typeofArticleId = reflect.TypeOf(article.Id)
 )
+
+func init() {
+	mktypeinfo(reflect.TypeOf(Article{}))
+	mktypeinfo(reflect.TypeOf(User{}))
+}
+
+func TestRef(t *testing.T) {
+	fmt.Println(typeofUserId)
+	fmt.Println(typeofArticleId)
+	fmt.Println(QuerySqlField(typeofArticleId) == article.Id.SqlField())
+	fmt.Println(QuerySqlField(typeofUserId) == user.Id.SqlField())
+	fmt.Println(QuerySqlField(typeofUserId) != article.Id.SqlField())
+}
 
 func BenchmarkReflectTypeOf(b *testing.B) {
 	var user User
@@ -60,6 +69,6 @@ func BenchmarkReflectTypeOf(b *testing.B) {
 
 func BenchmarkDirect(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		QuerySqlField(typeofUser, typeofIdMeta)
+		QuerySqlField(typeofUserId)
 	}
 }

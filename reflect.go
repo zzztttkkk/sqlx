@@ -8,18 +8,13 @@ type TypeInfo struct {
 	Fields []*SqlField
 }
 
-type fieldinfosKeyType struct {
-	tablletype reflect.Type
-	metatype   reflect.Type
-}
-
 var (
 	typeinfos  = map[reflect.Type]*TypeInfo{}
-	fieldinfos = map[fieldinfosKeyType]*SqlField{}
+	fieldinfos = map[reflect.Type]*SqlField{}
 )
 
-func QuerySqlField(tabletype reflect.Type, metatype reflect.Type) *SqlField {
-	return fieldinfos[fieldinfosKeyType{tabletype, metatype}]
+func QuerySqlField(fieldtype reflect.Type) *SqlField {
+	return fieldinfos[fieldtype]
 }
 
 func mktypeinfo(type_ reflect.Type) *TypeInfo {
@@ -51,11 +46,12 @@ func mktypeinfo(type_ reflect.Type) *TypeInfo {
 		metatype := reflect.New(ft.Type).Elem().Interface().(ifaceField).__sqlxfield__metatype()
 		sf := reflect.New(metatype).Elem().Interface().(IFieldMeta).SqlField()
 		sf.metaType = metatype
+		sf.fieldType = ft.Type
 		v.Fields = append(v.Fields, &sf)
 	}
 	for _, field := range v.Fields {
 		field.structType = type_
-		fieldinfos[fieldinfosKeyType{type_, field.metaType}] = field
+		fieldinfos[field.fieldType] = field
 	}
 	typeinfos[type_] = v
 	return v

@@ -11,6 +11,7 @@ type SqlField struct {
 	GoType     reflect.Type
 	structType reflect.Type
 	metaType   reflect.Type
+	fieldType  reflect.Type
 
 	Primary  bool
 	Unique   bool
@@ -31,8 +32,8 @@ type IFieldMeta interface {
 type Field[V any, Meta IFieldMeta, TablePtr any] struct {
 	Value V
 
-	meta  [0]Meta
-	table [0]TablePtr
+	meta [0]Meta
+	_    [0]TablePtr
 }
 
 func (field Field[V, M, T]) __sqlxfield__metatype() reflect.Type {
@@ -40,13 +41,8 @@ func (field Field[V, M, T]) __sqlxfield__metatype() reflect.Type {
 }
 
 func (field *Field[V, M, T]) SqlField() *SqlField {
-	return fieldinfos[fieldinfosKeyType{
-		reflect.TypeOf(field.table).Elem().Elem(),
-		reflect.TypeOf(field.meta).Elem(),
-	}]
+	return fieldinfos[reflect.TypeOf(field).Elem()]
 }
-
-
 
 type ifaceField interface {
 	__sqlxfield__metatype() reflect.Type
