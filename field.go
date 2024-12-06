@@ -2,17 +2,12 @@ package sqlx
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 )
 
-type SqlField struct {
-	Name       string
-	SqlType    string
-	GoType     reflect.Type
-	structType reflect.Type
-	metaType   reflect.Type
-	fieldType  reflect.Type
-
+type DdlOptions struct {
+	SqlType  string
 	Primary  bool
 	Unique   bool
 	Default  sql.NullString
@@ -21,31 +16,56 @@ type SqlField struct {
 	AutoIncr bool
 	Check    string
 	Options  map[string]string
+}
 
-	Table *SqlTable
+type FieldMetaInfo struct {
+	Name   string
+	GoType reflect.Type
+	Table  *TableMetaInfo
+	Ddl    DdlOptions
+
+	structType reflect.Type
+	metaType   reflect.Type
+	fieldType  reflect.Type
 }
 
 type IFieldMeta interface {
-	SqlField() SqlField
+	FieldMetaInfo() FieldMetaInfo
 }
 
-type Field[V any, Meta IFieldMeta, TablePtr any] struct {
+type Field[V any, Meta IFieldMeta, TablePtr ITable] struct {
 	Value V
-
 	meta  [0]Meta
 	table [0]TablePtr
 }
 
 func (field Field[V, Meta, TablePtr]) __sqlxfield__tabletype() reflect.Type {
-	return reflect.TypeOf(field.table).Elem().Elem()
+	tet := reflect.TypeOf(field.table).Elem()
+	if tet.Kind() != reflect.Pointer {
+		panic(fmt.Errorf("sqlx: bad table type, should be the pointer of struct"))
+	}
+	return tet.Elem()
 }
 
 func (field Field[V, M, T]) __sqlxfield__metatype() reflect.Type {
-	return reflect.TypeOf(field.meta).Elem()
+	met := reflect.TypeOf(field.meta).Elem()
+	if met.Kind() == reflect.Pointer {
+		met = met.Elem()
+	}
+	return met
 }
 
-func (field *Field[V, M, T]) SqlField() *SqlField {
+func (field *Field[V, M, T]) SqlField() *FieldMetaInfo {
 	return fieldinfos[reflect.TypeOf(field).Elem()]
+}
+
+func (field *Field[V, M, T]) ScanPtr() any {
+	return &field.Value
+}
+
+type ISqlField interface {
+	SqlField() *FieldMetaInfo
+	ScanPtr() any
 }
 
 type ifaceField interface {
@@ -57,10 +77,14 @@ var typeofIfaceField = reflect.TypeOf((*ifaceField)(nil)).Elem()
 
 type nonFieldMeta struct{}
 
-func (n nonFieldMeta) SqlField() SqlField {
-	panic("unimplemented")
+func (n nonFieldMeta) FieldMetaInfo() FieldMetaInfo {
+	return FieldMetaInfo{}
 }
 
-var _ IFieldMeta = nonFieldMeta{}
+type nonTableMeta struct{}
 
-var _ ifaceField = Field[int, nonFieldMeta, any]{}
+func (_ nonTableMeta) TableMetaInfo() TableMetaInfo {
+	return TableMetaInfo{}
+}
+
+var _ ifaceField = Field[int, nonFieldMeta, nonTableMeta]{}

@@ -8,36 +8,39 @@ import (
 
 type idMeta int
 
-func (_ idMeta) SqlField() SqlField {
-	return SqlField{
-		Name:     "id",
-		AutoIncr: true,
-		SqlType:  "bigint",
-		Primary:  true,
+func (_ idMeta) FieldMetaInfo() FieldMetaInfo {
+	return FieldMetaInfo{
+		Name: "id",
 	}
 }
 
-type CommonMix[T any] struct {
+type commonMix[T ITable] struct {
 	Id Field[int64, idMeta, T]
 }
 
 type nameMeta int
 
-func (_ nameMeta) SqlField() SqlField {
-	return SqlField{
-		Name:    "name",
-		Unique:  true,
-		SqlType: "varchar(36)",
+func (_ nameMeta) FieldMetaInfo() FieldMetaInfo {
+	return FieldMetaInfo{
+		Name: "name",
 	}
 }
 
 type User struct {
-	CommonMix[*User]
-	Name Field[string, nameMeta, *User]
+	commonMix[*User]
+	Name Field[string, *nameMeta, *User]
+}
+
+func (_ User) TableMetaInfo() TableMetaInfo {
+	return TableMetaInfo{}
 }
 
 type Article struct {
-	CommonMix[*Article]
+	commonMix[*Article]
+}
+
+func (_ Article) TableMetaInfo() TableMetaInfo {
+	return TableMetaInfo{}
 }
 
 var (
@@ -48,7 +51,8 @@ var (
 )
 
 func init() {
-	RegisterTypeByValue(Article{}, User{})
+	RegisterTable(User{})
+	RegisterTable(Article{})
 }
 
 func TestRef(t *testing.T) {
@@ -56,6 +60,7 @@ func TestRef(t *testing.T) {
 	fmt.Println(QuerySqlField(typeofArticleId) == article.Id.SqlField())
 	fmt.Println(QuerySqlField(typeofUserId) == user.Id.SqlField())
 	fmt.Println(QuerySqlField(typeofUserId) != article.Id.SqlField())
+	fmt.Println(user.Name.SqlField())
 }
 
 func BenchmarkReflectTypeOf(b *testing.B) {

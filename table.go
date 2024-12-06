@@ -2,10 +2,14 @@ package sqlx
 
 import "reflect"
 
-type SqlTable struct {
+type TableMetaInfo struct {
 	Name    string
-	GoType  reflect.Type
-	Fields  []*SqlField
-	Indexes []*Index
+	goType  reflect.Type
+	fields  []*FieldMetaInfo
+	indexes []*Index
 	Options map[string]string
+}
+
+type ITable interface {
+	TableMetaInfo() TableMetaInfo
 }

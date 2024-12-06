@@ -1,5 +1,9 @@
 package sqlx
 
+import (
+	"reflect"
+)
+
 type OrderKind int
 
 const (
@@ -13,10 +17,32 @@ type IndexKey struct {
 }
 
 type Index struct {
-	Kind    string
+	Name    string
 	Keys    []IndexKey
-	Options map[string]string
-	Table   *SqlTable
+	Options map[string]any
+
+	table *TableMetaInfo
 }
 
-func (index *Index) AddField(field *SqlField) {}
+func (idx *Index) AddField(field ifaceField, order OrderKind) *Index {
+	sf := reflect.New(reflect.TypeOf(field)).Interface().(ISqlField).SqlField()
+	idx.Keys = append(idx.Keys, IndexKey{
+		Name:  sf.Name,
+		Order: order,
+	})
+	return idx
+}
+
+func (idx *Index) Option(key string, val any) *Index {
+	if idx.Options == nil {
+		idx.Options = map[string]any{}
+	}
+	idx.Options[key] = val
+	return idx
+}
+
+func (tmi *TableMetaInfo) NewIndex(name string) *Index {
+	return &Index{
+		table: tmi,
+	}
+}

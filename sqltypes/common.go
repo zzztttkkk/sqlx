@@ -68,7 +68,7 @@ func (tc *typeCommon[T, Self]) Options(k string, v string) *Self {
 	return tc.self()
 }
 
-func (tc *typeCommon[T, Self]) Build() sqlx.SqlField {
-	obj := sqlx.SqlField{}
+func (tc *typeCommon[T, Self]) Build() sqlx.FieldMetaInfo {
+	obj := sqlx.FieldMetaInfo{}
 	return obj
 }
