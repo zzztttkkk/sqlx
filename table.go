@@ -12,6 +12,8 @@ type _Table[T any] struct {
 	begin     int64
 	ddl       *_Ddl[T]
 	fields    []_Field
+	options   map[string]any
+	indexes   map[string]*IndexMetainfo
 }
 
 var (
@@ -92,16 +94,28 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 	}
 }
 
-func (tab *_Table[T]) fieldbyptr(ptr unsafe.Pointer) *_Field {
+func (tab *_Table[T]) fieldbyptr(ptr unsafe.Pointer) (*_Field, bool) {
 	return tab.fieldbyoffset(int64(uintptr(ptr)) - tab.begin)
 }
 
-func (tab *_Table[T]) fieldbyoffset(offset int64) *_Field {
+func (tab *_Table[T]) mustfieldbyptr(ptr unsafe.Pointer) *_Field {
+	return tab.mustfieldbyoffset(int64(uintptr(ptr)) - tab.begin)
+}
+
+func (tab *_Table[T]) fieldbyoffset(offset int64) (*_Field, bool) {
 	for idx := range tab.fields {
 		fp := &tab.fields[idx]
 		if fp.Offset == offset {
-			return fp
+			return fp, true
 		}
+	}
+	return nil, false
+}
+
+func (tab *_Table[T]) mustfieldbyoffset(offset int64) *_Field {
+	ptr, ok := tab.fieldbyoffset(offset)
+	if ok {
+		return ptr
 	}
 	panic(fmt.Errorf("sqlx: can not find field, %s, %d", tab.modeltype, offset))
 }

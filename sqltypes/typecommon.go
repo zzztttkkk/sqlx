@@ -1,6 +1,8 @@
 package sqltypes
 
 import (
+	"fmt"
+	"reflect"
 	"unsafe"
 
 	"github.com/zzztttkkk/sqlx"
@@ -61,8 +63,78 @@ func (builder *typecommonBuilder[T, S]) CheckExpr(expr string) *S {
 	return builder.self()
 }
 
+func (builder *typecommonBuilder[T, S]) Comment(comment string) *S {
+	builder.pairs = append(builder.pairs, pair{"comment", comment})
+	return builder.self()
+}
+
 func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
 	ins := &sqlx.FieldMetainfo{}
+
+	for _, pair := range builder.pairs {
+		switch pair.key {
+		case "name":
+			{
+				ins.Name = pair.val.(string)
+				break
+			}
+		case "unqiue":
+			{
+				ins.Unique = true
+				break
+			}
+		case "nullable":
+			{
+				ins.Nullable = true
+				break
+			}
+		case "default":
+			{
+				ins.Default.Valid = true
+				dv := reflect.ValueOf(pair.val)
+				if dv.Kind() == reflect.String {
+					// todo qoute
+					ins.Default.String = fmt.Sprintf(`'%s'`, pair.val.(string))
+				} else {
+					ins.Default.String = fmt.Sprintf("%s", pair.val)
+				}
+				break
+			}
+		case "defaultexpr":
+			{
+				ins.Default.Valid = true
+				ins.Default.String = pair.val.(string)
+				break
+			}
+		case "autoincr":
+			{
+				ins.AutoIncr = true
+				break
+			}
+		case "primary":
+			{
+				ins.PrimaryKey = true
+				break
+			}
+		case "check":
+			{
+				ins.Check = pair.val.(string)
+				break
+			}
+		case "comment":
+			{
+				ins.Comment = pair.val.(string)
+				break
+			}
+		case "sqltype":
+			{
+				st := pair.val.(sqltype)
+				ins.SqlType = st.kind
+				ins.SqlTypeArgs = st.args
+				break
+			}
+		}
+	}
 	return sqlx.SqlField{
 		Ptr:      builder.ptr,
 		Metainfo: ins,

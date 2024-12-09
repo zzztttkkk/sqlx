@@ -16,7 +16,7 @@ type iddl interface {
 }
 
 func (ddl *_Ddl[T]) addfield(field SqlField) {
-	fp := ddl.table.fieldbyptr(field.Ptr)
+	fp := ddl.table.mustfieldbyptr(field.Ptr)
 	fp.Metainfo = field.Metainfo
 }
 
@@ -60,22 +60,40 @@ func (ddl *_Ddl[T]) Mixed(ptr IMixed) *_Ddl[T] {
 	var begin = int64(uintptr(reflect.ValueOf(ptr).Pointer()))
 	for _, mf := range ptr.MixedFields() {
 		offset := int64(uintptr(mf.Ptr)) - begin + mmoffset
-		fp := ddl.table.fieldbyoffset(offset)
+		fp := ddl.table.mustfieldbyoffset(offset)
 		fp.Metainfo = mf.Metainfo
 	}
 	return ddl
 }
 
-func (ddl *_Ddl[T]) Finish() *_Table[T] {
+func (ddl *_Ddl[T]) Option(k string, v any) *_Ddl[T] {
+	if ddl.table.options == nil {
+		ddl.table.options = map[string]any{}
+	}
+	ddl.table.options[k] = v
+	return ddl
+}
+
+func (ddl *_Ddl[T]) Finish() *TableMetainfo {
 	var nfs []_Field
-	for _, v := range ddl.table.fields {
-		if v.Metainfo == nil {
+	for _, f := range ddl.table.fields {
+		if f.Metainfo == nil {
 			continue
 		}
-		nfs = append(nfs, v)
+		nfs = append(nfs, f)
 	}
 	ddl.table.fields = nfs
-	return ddl.table
+	tmi := &TableMetainfo{
+		Name:    ddl.name,
+		Options: ddl.table.options,
+	}
+	for _, f := range ddl.table.fields {
+		tmi.Fields = append(tmi.Fields, f.Metainfo)
+	}
+	for _, idx := range ddl.table.indexes {
+		tmi.Indexes = append(tmi.Indexes, idx)
+	}
+	return tmi
 }
 
 type SqlField struct {
