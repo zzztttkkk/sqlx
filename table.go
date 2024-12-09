@@ -88,8 +88,9 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 
 		offset := int64(uintptr(fv.Addr().Pointer())) - begin
 		*fs = append(*fs, _Field{
-			Offset: offset,
-			Field:  ft,
+			Offset:  offset,
+			Field:   ft,
+			PtrType: reflect.PointerTo(ft.Type),
 		})
 	}
 }

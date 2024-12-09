@@ -42,5 +42,6 @@ type FieldMetainfo struct {
 type _Field struct {
 	Offset   int64
 	Field    reflect.StructField
+	PtrType  reflect.Type
 	Metainfo *FieldMetainfo
 }

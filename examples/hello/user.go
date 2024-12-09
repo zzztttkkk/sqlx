@@ -33,7 +33,9 @@ type User struct {
 
 func init() {
 	mptr := sqlx.Mptr[User]()
-	sqlx.Table[User]().DDL().Tablename("name").
+	sqlx.Table[User]().
+		DDL().
+		Tablename("name").
 		Mixed(&CommonMix{}).
 		Field(sqltypes.Varchar(&mptr.Name, "name", 32).Unique().Build()).
 		Field(sqltypes.Varchar(&mptr.Password, "pwd", 155).Build())
