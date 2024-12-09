@@ -8,8 +8,8 @@ import (
 
 type _Table[T any] struct {
 	modeltype reflect.Type
-	ptr       *T
-	begin     int64
+	modelptr  *T
+	ptrnum    int64
 	ddl       *_Ddl[T]
 	fields    []_Field
 	options   map[string]any
@@ -21,7 +21,7 @@ var (
 	tables    = map[reflect.Type]any{}
 )
 
-func ModelPtr[T any]() *T {
+func Mptr[T any]() *T {
 	var tmp [0]T
 	et := reflect.TypeOf(tmp).Elem()
 
@@ -34,8 +34,8 @@ func ModelPtr[T any]() *T {
 	return ptr
 }
 
-func Mptr[T any]() *T {
-	return ModelPtr[T]()
+func ModelPtr[T any]() *T {
+	return Mptr[T]()
 }
 
 func Table[T any]() *_Table[T] {
@@ -46,25 +46,25 @@ func Table[T any]() *_Table[T] {
 	}
 
 	tab := &_Table[T]{
-		ptr: ModelPtr[T](),
-		ddl: new(_Ddl[T]),
+		modelptr: ModelPtr[T](),
+		ddl:      new(_Ddl[T]),
 	}
 	tables[modeltype] = tab
 
 	tab.modeltype = modeltype
-	modelptrs[tab.modeltype] = tab.ptr
-	tab.begin = int64(uintptr(unsafe.Pointer(tab.ptr)))
+	modelptrs[tab.modeltype] = tab.modelptr
+	tab.ptrnum = int64(uintptr(unsafe.Pointer(tab.modelptr)))
 	tab.ddl.table = tab
 	tab.init()
 	return tab
 }
 
 func (table *_Table[T]) ModelPtr() *T {
-	return table.ptr
+	return table.modelptr
 }
 
 func (tab *_Table[T]) init() {
-	addfield(&tab.fields, tab.ptr, tab.begin)
+	addfield(&tab.fields, tab.modelptr, tab.ptrnum)
 }
 
 func addfield(fs *[]_Field, ptr any, begin int64) {
@@ -95,11 +95,11 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 }
 
 func (tab *_Table[T]) fieldbyptr(ptr unsafe.Pointer) (*_Field, bool) {
-	return tab.fieldbyoffset(int64(uintptr(ptr)) - tab.begin)
+	return tab.fieldbyoffset(int64(uintptr(ptr)) - tab.ptrnum)
 }
 
 func (tab *_Table[T]) mustfieldbyptr(ptr unsafe.Pointer) *_Field {
-	return tab.mustfieldbyoffset(int64(uintptr(ptr)) - tab.begin)
+	return tab.mustfieldbyoffset(int64(uintptr(ptr)) - tab.ptrnum)
 }
 
 func (tab *_Table[T]) fieldbyoffset(offset int64) (*_Field, bool) {

@@ -36,8 +36,8 @@ func (ddl *_Ddl[T]) Mixed(ptr IMixed) *_Ddl[T] {
 		panic(fmt.Errorf("sqlx: mixed is not a struct type, %s", pt))
 	}
 	mt := ddl.table.modeltype
-	mp := ddl.table.ptr
-	mbegin := ddl.table.begin
+	mp := ddl.table.modelptr
+	mbegin := ddl.table.ptrnum
 	mv := reflect.ValueOf(mp).Elem()
 
 	idx := -1
