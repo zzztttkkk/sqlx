@@ -10,5 +10,8 @@ type TableMetainfo struct {
 }
 
 type ISqlDialectImpl interface {
-	Migration(ctx context.Context, table *TableMetainfo) error
+	Migrate(ctx context.Context, table *TableMetainfo) error
+	QuoteValue(txt string) string
+	QuoteName(name string) string
+	MakeParamPlaceholder(idx int, val any) (string, any)
 }
