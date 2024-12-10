@@ -128,6 +128,7 @@ func gettypeinfo[T any](tt reflect.Type) *_TypeInfo[T] {
 	return ti
 }
 
+//lint:ignore U1000 .
 func setfieldmeta[T any](fptr unsafe.Pointer, meta *FieldMetainfo) {
 	ti := gettypeinfo[T](nil)
 	fv := ti.mustfieldbyptr(fptr)
