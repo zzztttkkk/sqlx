@@ -40,6 +40,16 @@ func (tab *_TypeInfo[T]) mustfieldbyoffset(offset int64) *_Field {
 	panic(fmt.Errorf("sqlx: can not find field, %s, %d", tab.modeltype, offset))
 }
 
+func gettag(field *reflect.StructField, tags ...string) string {
+	for _, tag := range tags {
+		v := field.Tag.Get(tag)
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 func addfield(fs *[]_Field, ptr any, begin int64) {
 	rv := reflect.ValueOf(ptr).Elem()
 	if rv.Kind() != reflect.Struct {
@@ -50,7 +60,7 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 	for i := 0; i < rv.NumField(); i++ {
 		fv := rv.Field(i)
 		ft := rt.Field(i)
-		dbtag := ft.Tag.Get("db")
+		dbtag := gettag(&ft, "sqlx", "db", "sql")
 		if dbtag == "-" || !ft.IsExported() {
 			continue
 		}
@@ -121,5 +131,5 @@ func gettypeinfo[T any](tt reflect.Type) *_TypeInfo[T] {
 func setfieldmeta[T any](fptr unsafe.Pointer, meta *FieldMetainfo) {
 	ti := gettypeinfo[T](nil)
 	fv := ti.mustfieldbyptr(fptr)
-	fv.Metainfo = meta
+	fv.setmeta(meta)
 }

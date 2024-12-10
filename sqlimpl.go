@@ -13,5 +13,4 @@ type ISqlDialectImpl interface {
 	Migrate(ctx context.Context, table *TableMetainfo) error
 	QuoteValue(txt string) string
 	QuoteName(name string) string
-	MakeParamPlaceholder(idx int, val any) (string, any)
 }

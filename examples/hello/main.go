@@ -12,34 +12,44 @@ import (
 	"github.com/zzztttkkk/sqlx"
 )
 
+type SumArgs struct {
+	A int64 `db:"a"`
+	B int64 `db:"b"`
+}
+
 type SumResult struct {
 	Sum int64 `db:"val"`
 }
+
+// func (sr *SumResult) FieldPtrs() []any {
+// 	return []any{&sr.Sum}
+// }
 
 func main() {
 	db, _ := sql.Open("sqlite3", "file:demo.db")
 
 	ctx := sqlx.WithDb(context.Background(), db)
 
-	stmt := sqlx.SelectStmt(
-		"select ? + ? as val",
+	stmt := sqlx.SelectStmt[SumArgs](
+		"select @a + @b + @a as val",
 		func() *SumResult { return &SumResult{} },
 	).
 		MustPrepare(ctx, db).
 		QueryLengthHint(1)
 
 	var wg sync.WaitGroup
-	var count = 100
+	var count = 1
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
 			defer wg.Done()
 
-			a := rand.Int31n(1000)
-			b := rand.Int31n(10000)
-
-			v := stmt.MustQueryOne(ctx, a, b)
-			fmt.Println(i, a, b, v, v.Sum == int64(a+b))
+			args := SumArgs{
+				A: int64(rand.Int31n(100)),
+				B: int64(rand.Int31n(100)),
+			}
+			result := stmt.MustQueryOne(ctx, &args)
+			fmt.Println(args, result)
 		}()
 	}
 

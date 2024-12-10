@@ -10,17 +10,53 @@ import (
 	"unsafe"
 )
 
-type commonStmt[S any] struct {
+type IScanable interface {
+	FieldPtrs() []any
+}
+
+type IArgs interface {
+	NamedArgs() []sql.NamedArg
+}
+
+var (
+	typeofIScanable = reflect.TypeOf((*IScanable)(nil)).Elem()
+	typeofIArgs     = reflect.TypeOf((*IArgs)(nil)).Elem()
+)
+
+type _CommonStmt[Args any, Self any] struct {
 	sql   string
 	stmts map[*sql.DB]*sql.Stmt
 	_stmt *sql.Stmt
+
+	isIArgs bool
+
+	argvGetters []func(ptr unsafe.Pointer) any
 }
 
-func (cs *commonStmt[S]) self() *S {
-	return (*S)(unsafe.Pointer(cs))
+func (cs *_CommonStmt[Args, Self]) self() *Self {
+	return (*Self)(unsafe.Pointer(cs))
 }
 
-func (cs *commonStmt[S]) Prepare(ctx context.Context, dbs ...*sql.DB) error {
+func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
+	ti := gettypeinfo[Args](nil)
+	if len(ti.fields) < 1 {
+		panic(fmt.Errorf("sqlx: empty fields on type, %s", ti.modeltype))
+	}
+	cs.sql = sqltxt
+	if reflect.PointerTo(ti.modeltype).Implements(typeofIArgs) {
+		cs.isIArgs = true
+	}
+
+	for idx := range ti.fields {
+		fmp := &ti.fields[idx]
+		cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
+			fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
+			return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
+		})
+	}
+}
+
+func (cs *_CommonStmt[Args, Self]) Prepare(ctx context.Context, dbs ...*sql.DB) error {
 	if len(dbs) < 1 {
 		panic(fmt.Errorf("sqlx: empty databases"))
 	}
@@ -45,14 +81,14 @@ func (cs *commonStmt[S]) Prepare(ctx context.Context, dbs ...*sql.DB) error {
 	return nil
 }
 
-func (cs *commonStmt[S]) MustPrepare(ctx context.Context, dbs ...*sql.DB) *S {
+func (cs *_CommonStmt[Args, Self]) MustPrepare(ctx context.Context, dbs ...*sql.DB) *Self {
 	if err := cs.Prepare(ctx, dbs...); err != nil {
 		panic(err)
 	}
 	return cs.self()
 }
 
-func (cs *commonStmt[S]) getsv(ctx context.Context) *sql.Stmt {
+func (cs *_CommonStmt[Args, Self]) getsv(ctx context.Context) *sql.Stmt {
 	if cs._stmt != nil {
 		return cs._stmt
 	}
@@ -63,36 +99,54 @@ func (cs *commonStmt[S]) getsv(ctx context.Context) *sql.Stmt {
 	return cs.stmts[dbv.(*sql.DB)]
 }
 
-type selectStmt[S any] struct {
-	commonStmt[selectStmt[S]]
-	fields      []_Field
-	constructor func() *S
+func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
+	var qargs []any
+	if cs.isIArgs {
+		nargs := ((any)(v).(IArgs)).NamedArgs()
+		for _, v := range nargs {
+			qargs = append(qargs, v)
+		}
+	} else {
+		ptr := unsafe.Pointer(v)
+		for _, getter := range cs.argvGetters {
+			qargs = append(qargs, getter(ptr))
+		}
+	}
+	return qargs
+}
+
+type _SelectStmt[Args any, Scanable any] struct {
+	_CommonStmt[Args, _SelectStmt[Args, Scanable]]
+	scanfields  []_Field
+	constructor func() *Scanable
 	lengthhint  int
 
+	isIScanable bool
 	lock        sync.RWMutex
 	fptrGetters []func(ins unsafe.Pointer) any
 }
 
-func SelectStmt[S any](sql string, constructor func() *S) *selectStmt[S] {
-	var ti = gettypeinfo[S](nil)
+func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable) *_SelectStmt[Args, Scanable] {
+	var ti = gettypeinfo[Scanable](nil)
 	if len(ti.fields) < 1 {
 		panic(fmt.Errorf("sqlx: empty fields on type, %s", ti.modeltype))
 	}
 
-	obj := &selectStmt[S]{
+	obj := &_SelectStmt[Args, Scanable]{
 		constructor: constructor,
-		fields:      ti.fields,
+		scanfields:  ti.fields,
+		isIScanable: reflect.PointerTo(ti.modeltype).Implements(typeofIScanable),
 	}
-	obj.sql = sql
+	obj.init(sql)
 	return obj
 }
 
-func (stmt *selectStmt[S]) QueryLengthHint(hint int) *selectStmt[S] {
+func (stmt *_SelectStmt[Args, Scanable]) QueryLengthHint(hint int) *_SelectStmt[Args, Scanable] {
 	stmt.lengthhint = hint
 	return stmt
 }
 
-func (stmt *selectStmt[S]) mkPtrGetters(rows *sql.Rows) error {
+func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 	stmt.lock.Lock()
 	defer stmt.lock.Unlock()
 
@@ -104,8 +158,8 @@ func (stmt *selectStmt[S]) mkPtrGetters(rows *sql.Rows) error {
 	var fs []*_Field
 	for _, name := range names {
 		found := false
-		for idx := range stmt.fields {
-			fp := &stmt.fields[idx]
+		for idx := range stmt.scanfields {
+			fp := &stmt.scanfields[idx]
 			if fp.Metainfo.Name == name {
 				fs = append(fs, fp)
 				found = true
@@ -125,7 +179,7 @@ func (stmt *selectStmt[S]) mkPtrGetters(rows *sql.Rows) error {
 	return nil
 }
 
-func (stmt *selectStmt[S]) ensurePtrGetters(rows *sql.Rows) error {
+func (stmt *_SelectStmt[Args, Scanable]) ensurePtrGetters(rows *sql.Rows) error {
 	stmt.lock.RLock()
 	if stmt.fptrGetters != nil {
 		stmt.lock.RUnlock()
@@ -137,7 +191,26 @@ func (stmt *selectStmt[S]) ensurePtrGetters(rows *sql.Rows) error {
 
 var ErrNoDB = errors.New("sqlx: can not get *sql.DB from context")
 
-func (stmt *selectStmt[S]) QueryMany(ctx context.Context, args ...any) ([]*S, error) {
+func (stmt *_SelectStmt[Args, Scanable]) scanByInterface(rows *sql.Rows) ([]*Scanable, error) {
+	var vec []*Scanable
+	if stmt.lengthhint > 0 {
+		vec = make([]*Scanable, 0, stmt.lengthhint)
+	}
+	for rows.Next() {
+		var eleptr = stmt.constructor()
+		var ifele = ((any)(eleptr)).(IScanable)
+
+		var ptrs = ifele.FieldPtrs()
+		err := rows.Scan(ptrs...)
+		if err != nil {
+			return nil, err
+		}
+		vec = append(vec, eleptr)
+	}
+	return vec, nil
+}
+
+func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Args) ([]*Scanable, error) {
 	var sv = stmt.getsv(ctx)
 
 	txv := ctx.Value(ctxKeyForTx)
@@ -146,19 +219,23 @@ func (stmt *selectStmt[S]) QueryMany(ctx context.Context, args ...any) ([]*S, er
 		sv = tx.StmtContext(ctx, sv)
 	}
 
-	rows, err := sv.QueryContext(ctx, args...)
+	rows, err := sv.QueryContext(ctx, stmt.expandArgs(args)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	if stmt.isIScanable {
+		return stmt.scanByInterface(rows)
+	}
+
 	if err = stmt.ensurePtrGetters(rows); err != nil {
 		return nil, err
 	}
 
-	var vec []*S
+	var vec []*Scanable
 	if stmt.lengthhint > 0 {
-		vec = make([]*S, 0, stmt.lengthhint)
+		vec = make([]*Scanable, 0, stmt.lengthhint)
 	}
 
 	var tmps []any = make([]any, len(stmt.fptrGetters))
@@ -177,12 +254,12 @@ func (stmt *selectStmt[S]) QueryMany(ctx context.Context, args ...any) ([]*S, er
 	return vec, nil
 }
 
-func (stmt *selectStmt[S]) MustQueryMany(ctx context.Context, args ...any) []*S {
-	return must(stmt.QueryMany(ctx, args...))
+func (stmt *_SelectStmt[Args, Scanable]) MustQueryMany(ctx context.Context, args *Args) []*Scanable {
+	return must(stmt.QueryMany(ctx, args))
 }
 
-func (stmt *selectStmt[S]) QueryOne(ctx context.Context, args ...any) (*S, error) {
-	vs, err := stmt.QueryMany(ctx, args...)
+func (stmt *_SelectStmt[Args, Scanable]) QueryOne(ctx context.Context, args *Args) (*Scanable, error) {
+	vs, err := stmt.QueryMany(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +269,6 @@ func (stmt *selectStmt[S]) QueryOne(ctx context.Context, args ...any) (*S, error
 	return vs[0], nil
 }
 
-func (stmt *selectStmt[S]) MustQueryOne(ctx context.Context, args ...any) *S {
-	return must(stmt.QueryOne(ctx, args...))
+func (stmt *_SelectStmt[Args, Scanable]) MustQueryOne(ctx context.Context, args *Args) *Scanable {
+	return must(stmt.QueryOne(ctx, args))
 }
