@@ -28,14 +28,14 @@ func getintkind[T ints]() (string, int) {
 	return "int", tt.Bits()
 }
 
-func Int[T ints](ptr *T, name string) *intTypeBuilder[T] {
+func Int[T ints](ptr *T) *intTypeBuilder[T] {
 	ins := &intTypeBuilder[T]{}
 	ins.ptr = unsafe.Pointer(ptr)
 	ik, is := getintkind[T]()
-	ins.sqltype(name, ik, is)
+	ins.sqltype(ik, is)
 	return ins
 }
 
-func NullableInt[T ints](ptr *sql.Null[T], name string) *intTypeBuilder[T] {
-	return Int((*T)(unsafe.Pointer(ptr)), name).Nullable()
+func NullableInt[T ints](ptr *sql.Null[T]) *intTypeBuilder[T] {
+	return Int((*T)(unsafe.Pointer(ptr))).Nullable()
 }

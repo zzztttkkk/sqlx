@@ -9,13 +9,13 @@ type boolTypeBuilder struct {
 	typecommonBuilder[bool, boolTypeBuilder]
 }
 
-func Bool(ptr *bool, name string) *boolTypeBuilder {
+func Bool(ptr *bool) *boolTypeBuilder {
 	ins := &boolTypeBuilder{}
 	ins.ptr = unsafe.Pointer(ptr)
-	ins.sqltype(name, "bool")
+	ins.sqltype("bool")
 	return ins
 }
 
-func NullableBool(ptr *sql.Null[bool], name string) *boolTypeBuilder {
-	return Bool((*bool)(unsafe.Pointer(ptr)), name).Nullable()
+func NullableBool(ptr *sql.Null[bool]) *boolTypeBuilder {
+	return Bool((*bool)(unsafe.Pointer(ptr))).Nullable()
 }

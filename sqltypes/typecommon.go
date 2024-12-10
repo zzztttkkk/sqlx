@@ -27,8 +27,7 @@ func (builder *typecommonBuilder[T, S]) self() *S {
 	return (*S)(unsafe.Pointer(builder))
 }
 
-func (builder *typecommonBuilder[T, S]) sqltype(name string, sqlkind string, args ...any) *S {
-	builder.pairs = append(builder.pairs, pair{"name", name})
+func (builder *typecommonBuilder[T, S]) sqltype(sqlkind string, args ...any) *S {
 	builder.pairs = append(builder.pairs, pair{"sqltype", sqltype{kind: sqlkind, args: args}})
 	return builder.self()
 }
@@ -63,6 +62,11 @@ func (builder *typecommonBuilder[T, S]) CheckExpr(expr string) *S {
 	return builder.self()
 }
 
+func (builder *typecommonBuilder[T, S]) Name(name string) *S {
+	builder.pairs = append(builder.pairs, pair{"name", name})
+	return builder.self()
+}
+
 func (builder *typecommonBuilder[T, S]) Comment(comment string) *S {
 	builder.pairs = append(builder.pairs, pair{"comment", comment})
 	return builder.self()
@@ -80,57 +84,57 @@ func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
 			}
 		case "unqiue":
 			{
-				ins.Unique = true
+				ins.DdlOptions.Unique = true
 				break
 			}
 		case "nullable":
 			{
-				ins.Nullable = true
+				ins.DdlOptions.Nullable = true
 				break
 			}
 		case "default":
 			{
-				ins.Default.Valid = true
+				ins.DdlOptions.Default.Valid = true
 				dv := reflect.ValueOf(pair.val)
 				if dv.Kind() == reflect.String {
 					// todo qoute
-					ins.Default.String = fmt.Sprintf(`'%s'`, pair.val.(string))
+					ins.DdlOptions.Default.String = fmt.Sprintf(`'%s'`, pair.val.(string))
 				} else {
-					ins.Default.String = fmt.Sprintf("%s", pair.val)
+					ins.DdlOptions.Default.String = fmt.Sprintf("%s", pair.val)
 				}
 				break
 			}
 		case "defaultexpr":
 			{
-				ins.Default.Valid = true
-				ins.Default.String = pair.val.(string)
+				ins.DdlOptions.Default.Valid = true
+				ins.DdlOptions.Default.String = pair.val.(string)
 				break
 			}
 		case "autoincr":
 			{
-				ins.AutoIncr = true
+				ins.DdlOptions.AutoIncr = true
 				break
 			}
 		case "primary":
 			{
-				ins.PrimaryKey = true
+				ins.DdlOptions.PrimaryKey = true
 				break
 			}
 		case "check":
 			{
-				ins.Check = pair.val.(string)
+				ins.DdlOptions.Check = pair.val.(string)
 				break
 			}
 		case "comment":
 			{
-				ins.Comment = pair.val.(string)
+				ins.DdlOptions.Comment = pair.val.(string)
 				break
 			}
 		case "sqltype":
 			{
 				st := pair.val.(sqltype)
-				ins.SqlType = st.kind
-				ins.SqlTypeArgs = st.args
+				ins.DdlOptions.SqlType = st.kind
+				ins.DdlOptions.SqlTypeArgs = st.args
 				break
 			}
 		}

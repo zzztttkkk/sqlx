@@ -17,7 +17,7 @@ type iddl interface {
 
 func (ddl *_Ddl[T]) addfield(field SqlField) {
 	fp := ddl.table.mustfieldbyptr(field.Ptr)
-	fp.Metainfo = field.Metainfo
+	fp.setmeta(field.Metainfo)
 }
 
 func (ddl *_Ddl[T]) Field(field SqlField) *_Ddl[T] {
@@ -61,7 +61,7 @@ func (ddl *_Ddl[T]) Mixed(ptr IMixed) *_Ddl[T] {
 	for _, mf := range ptr.MixedFields() {
 		offset := int64(uintptr(mf.Ptr)) - begin + mmoffset
 		fp := ddl.table.mustfieldbyoffset(offset)
-		fp.Metainfo = mf.Metainfo
+		fp.setmeta(mf.Metainfo)
 	}
 	return ddl
 }

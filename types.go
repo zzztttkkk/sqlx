@@ -26,8 +26,7 @@ type IndexMetainfo struct {
 	Options map[string]any
 }
 
-type FieldMetainfo struct {
-	Name        string
+type FieldDdlOptions struct {
 	SqlType     string
 	SqlTypeArgs []any
 	PrimaryKey  bool
@@ -39,9 +38,24 @@ type FieldMetainfo struct {
 	AutoIncr    bool
 }
 
+type FieldMetainfo struct {
+	Name       string
+	DdlOptions FieldDdlOptions
+}
+
 type _Field struct {
 	Offset   int64
 	Field    reflect.StructField
-	PtrType  reflect.Type
 	Metainfo *FieldMetainfo
+}
+
+func (f *_Field) setmeta(meta *FieldMetainfo) {
+	if f.Metainfo == nil {
+		f.Metainfo = meta
+		return
+	}
+	if f.Metainfo.Name == "" {
+		f.Metainfo.Name = meta.Name
+	}
+	f.Metainfo.DdlOptions = meta.DdlOptions
 }

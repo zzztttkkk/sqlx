@@ -16,9 +16,9 @@ type CommonMix struct {
 
 func (c *CommonMix) MixedFields() []sqlx.SqlField {
 	return []sqlx.SqlField{
-		sqltypes.Int(&c.Id, "id").Primary().AutoIncr().Build(),
-		sqltypes.Int(&c.CreatedAt, "created_at").DefaultExpr("unix_timestamp()").Build(),
-		sqltypes.NullableInt(&c.DeletedAt, "deleted_at").Nullable().Build(),
+		sqltypes.Int(&c.Id).Primary().AutoIncr().Build(),
+		sqltypes.Int(&c.CreatedAt).DefaultExpr("unix_timestamp()").Build(),
+		sqltypes.NullableInt(&c.DeletedAt).Nullable().Build(),
 	}
 }
 
@@ -37,10 +37,10 @@ func init() {
 		DDL().
 		Tablename("name").
 		Mixed(&CommonMix{}).
-		Field(sqltypes.Varchar(&mptr.Name, "name", 32).Unique().Build()).
-		Field(sqltypes.Varchar(&mptr.Password, "pwd", 155).Build())
+		Field(sqltypes.Varchar(&mptr.Name, 32).Unique().Build()).
+		Field(sqltypes.Varchar(&mptr.Password, 155).Build())
 
-	sqltypes.Varchar(&mptr.Email, "email", 64).Build().AddToDdl(sqlx.Table[User]().DDL())
+	sqltypes.Varchar(&mptr.Email, 64).Build().AddToDdl(sqlx.Table[User]().DDL())
 
 	sqlx.Index[User]("email_index").Field(unsafe.Pointer(&mptr.Email), 0, nil)
 }
