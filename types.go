@@ -27,15 +27,16 @@ type IndexMetainfo struct {
 }
 
 type FieldDdlOptions struct {
-	SqlType     string
-	SqlTypeArgs []any
-	PrimaryKey  bool
-	Unique      bool
-	Nullable    bool
-	Check       string
-	Default     sql.NullString
-	Comment     string
-	AutoIncr    bool
+	SqlType      string
+	SqlTypeArgs  []any
+	PrimaryKey   bool
+	Unique       bool
+	Nullable     bool
+	CheckExpr    string
+	DefaultExpr  sql.Null[string]
+	DefaultValue sql.Null[any]
+	Comment      string
+	AutoIncr     bool
 }
 
 type FieldMetainfo struct {

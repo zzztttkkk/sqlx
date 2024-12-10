@@ -1,8 +1,6 @@
 package sqltypes
 
 import (
-	"fmt"
-	"reflect"
 	"unsafe"
 
 	"github.com/zzztttkkk/sqlx"
@@ -94,20 +92,14 @@ func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
 			}
 		case "default":
 			{
-				ins.DdlOptions.Default.Valid = true
-				dv := reflect.ValueOf(pair.val)
-				if dv.Kind() == reflect.String {
-					// todo qoute
-					ins.DdlOptions.Default.String = fmt.Sprintf(`'%s'`, pair.val.(string))
-				} else {
-					ins.DdlOptions.Default.String = fmt.Sprintf("%s", pair.val)
-				}
+				ins.DdlOptions.DefaultValue.Valid = true
+				ins.DdlOptions.DefaultValue.V = pair.val
 				break
 			}
 		case "defaultexpr":
 			{
-				ins.DdlOptions.Default.Valid = true
-				ins.DdlOptions.Default.String = pair.val.(string)
+				ins.DdlOptions.DefaultExpr.Valid = true
+				ins.DdlOptions.DefaultExpr.V = pair.val.(string)
 				break
 			}
 		case "autoincr":
@@ -122,7 +114,7 @@ func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
 			}
 		case "check":
 			{
-				ins.DdlOptions.Check = pair.val.(string)
+				ins.DdlOptions.CheckExpr = pair.val.(string)
 				break
 			}
 		case "comment":
