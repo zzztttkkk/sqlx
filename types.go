@@ -45,9 +45,9 @@ type FieldMetainfo struct {
 }
 
 type _Field struct {
-	Offset   int64
-	Field    reflect.StructField
-	Metainfo *FieldMetainfo
+	Offset    int64
+	Field     reflect.StructField
+	Metainfo  *FieldMetainfo
 }
 
 func (f *_Field) setmeta(meta *FieldMetainfo) {
@@ -55,7 +55,7 @@ func (f *_Field) setmeta(meta *FieldMetainfo) {
 		f.Metainfo = meta
 		return
 	}
-	if f.Metainfo.Name == "" {
+	if meta.Name != "" {
 		f.Metainfo.Name = meta.Name
 	}
 	f.Metainfo.DdlOptions = meta.DdlOptions

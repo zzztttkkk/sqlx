@@ -50,7 +50,7 @@ func gettag(field *reflect.StructField, tags ...string) string {
 	return ""
 }
 
-func addfield(fs *[]_Field, ptr any, begin int64) {
+func addfield[T any](fs *[]_Field, ptr any, begin int64) {
 	rv := reflect.ValueOf(ptr).Elem()
 	if rv.Kind() != reflect.Struct {
 		panic(fmt.Errorf("sqlx: `%s` is not a struct type", rv.Type()))
@@ -65,7 +65,7 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 			continue
 		}
 		if ft.Anonymous {
-			addfield(fs, fv.Addr().Interface(), begin)
+			addfield[T](fs, fv.Addr().Interface(), begin)
 			continue
 		}
 
@@ -76,7 +76,6 @@ func addfield(fs *[]_Field, ptr any, begin int64) {
 			Field:    ft,
 			Metainfo: &FieldMetainfo{},
 		}
-
 		parts := strings.Split(dbtag, ",")
 		name := strings.TrimSpace(parts[0])
 		if name == "" {
@@ -124,7 +123,7 @@ func gettypeinfo[T any](tt reflect.Type) *_TypeInfo[T] {
 	}
 	ti.ptrnum = int64(uintptr(unsafe.Pointer(ti.modelptr)))
 	typeinfos[tt] = ti
-	addfield(&ti.fields, ti.modelptr, ti.ptrnum)
+	addfield[T](&ti.fields, ti.modelptr, ti.ptrnum)
 	return ti
 }
 

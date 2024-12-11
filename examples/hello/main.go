@@ -21,10 +21,6 @@ type SumResult struct {
 	Sum int64 `db:"val"`
 }
 
-// func (sr *SumResult) FieldPtrs() []any {
-// 	return []any{&sr.Sum}
-// }
-
 func main() {
 	db, _ := sql.Open("sqlite3", "file:demo.db")
 

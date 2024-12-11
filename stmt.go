@@ -215,8 +215,7 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Ar
 
 	txv := ctx.Value(ctxKeyForTx)
 	if txv != nil {
-		tx := txv.(*sql.Tx)
-		sv = tx.StmtContext(ctx, sv)
+		sv = (txv.(*sql.Tx)).StmtContext(ctx, sv)
 	}
 
 	rows, err := sv.QueryContext(ctx, stmt.expandArgs(args)...)
@@ -271,4 +270,23 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryOne(ctx context.Context, args *Arg
 
 func (stmt *_SelectStmt[Args, Scanable]) MustQueryOne(ctx context.Context, args *Args) *Scanable {
 	return must(stmt.QueryOne(ctx, args))
+}
+
+type _ExecStmt[Args any] struct {
+	_CommonStmt[Args, _ExecStmt[Args]]
+}
+
+func ExecStmt[Args any](sql string) *_ExecStmt[Args] {
+	obj := &_ExecStmt[Args]{}
+	obj.init(sql)
+	return obj
+}
+
+func (stmt *_ExecStmt[Args]) Exec(ctx context.Context, args *Args) (sql.Result, error) {
+	var sv = stmt.getsv(ctx)
+	txv := ctx.Value(ctxKeyForTx)
+	if txv != nil {
+		sv = (txv.(*sql.Tx)).StmtContext(ctx, sv)
+	}
+	return sv.ExecContext(ctx, stmt.expandArgs(args)...)
 }
