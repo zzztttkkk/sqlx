@@ -48,14 +48,14 @@ func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
 	if !cs.isEmptyArgs {
 		if reflect.PointerTo(ti.modeltype).Implements(typeofIArgs) {
 			cs.isIArgs = true
-		}
-
-		for idx := range ti.fields {
-			fmp := &ti.fields[idx]
-			cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-				fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
-				return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
-			})
+		} else {
+			for idx := range ti.fields {
+				fmp := &ti.fields[idx]
+				cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
+					fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
+					return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
+				})
+			}
 		}
 	}
 }
@@ -92,7 +92,7 @@ func (cs *_CommonStmt[Args, Self]) MustPrepare(ctx context.Context, dbs ...*sql.
 	return cs.self()
 }
 
-func (cs *_CommonStmt[Args, Self]) getsv(ctx context.Context) *sql.Stmt {
+func (cs *_CommonStmt[Args, Self]) getdbsv(ctx context.Context) *sql.Stmt {
 	if cs._stmt != nil {
 		return cs._stmt
 	}
@@ -139,7 +139,7 @@ type _SelectStmt[Args any, Scanable any] struct {
 func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable) *_SelectStmt[Args, Scanable] {
 	var ti = gettypeinfo[Scanable](nil)
 	if len(ti.fields) < 1 {
-		panic(fmt.Errorf("sqlx: empty fields on type, %s", ti.modeltype))
+		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.modeltype))
 	}
 
 	obj := &_SelectStmt[Args, Scanable]{
@@ -208,10 +208,8 @@ func (stmt *_SelectStmt[Args, Scanable]) scanByInterface(rows *sql.Rows) ([]*Sca
 	}
 	for rows.Next() {
 		var eleptr = stmt.constructor()
-		var ifele = ((any)(eleptr)).(IScanable)
-
-		var ptrs = ifele.FieldPtrs()
-		err := rows.Scan(ptrs...)
+		var iface = ((any)(eleptr)).(IScanable)
+		err := rows.Scan(iface.FieldPtrs()...)
 		if err != nil {
 			return nil, err
 		}
@@ -221,11 +219,13 @@ func (stmt *_SelectStmt[Args, Scanable]) scanByInterface(rows *sql.Rows) ([]*Sca
 }
 
 func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Args) ([]*Scanable, error) {
-	var sv = stmt.getsv(ctx)
+	var sv = stmt.getdbsv(ctx)
 
 	txv := ctx.Value(ctxKeyForTx)
 	if txv != nil {
 		sv = (txv.(*sql.Tx)).StmtContext(ctx, sv)
+		// we do not need to close this stmt
+		// sql.Tx will do close when commit/rollback ==> go:src/database/sql/sql.go#2270 func closePrepared
 	}
 
 	rows, err := sv.QueryContext(ctx, stmt.expandArgs(args)...)
@@ -293,7 +293,7 @@ func ExecStmt[Args any](sql string) *_ExecStmt[Args] {
 }
 
 func (stmt *_ExecStmt[Args]) Exec(ctx context.Context, args *Args) (sql.Result, error) {
-	var sv = stmt.getsv(ctx)
+	var sv = stmt.getdbsv(ctx)
 	txv := ctx.Value(ctxKeyForTx)
 	if txv != nil {
 		sv = (txv.(*sql.Tx)).StmtContext(ctx, sv)

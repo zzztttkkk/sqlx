@@ -10,7 +10,6 @@ type ctxKeyType int
 const (
 	ctxKeyForDb = ctxKeyType(iota)
 	ctxKeyForTx
-	ctxKeyForDialectImpl
 )
 
 func WithDb(ctx context.Context, db *sql.DB) context.Context {
