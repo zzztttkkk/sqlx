@@ -28,7 +28,8 @@ type _CommonStmt[Args any, Self any] struct {
 	stmts map[*sql.DB]*sql.Stmt
 	_stmt *sql.Stmt
 
-	isIArgs bool
+	isIArgs     bool
+	isEmptyArgs bool
 
 	argvGetters []func(ptr unsafe.Pointer) any
 }
@@ -40,19 +41,22 @@ func (cs *_CommonStmt[Args, Self]) self() *Self {
 func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
 	ti := gettypeinfo[Args](nil)
 	if len(ti.fields) < 1 {
-		panic(fmt.Errorf("sqlx: empty fields on type, %s", ti.modeltype))
+		cs.isEmptyArgs = true
 	}
 	cs.sql = sqltxt
-	if reflect.PointerTo(ti.modeltype).Implements(typeofIArgs) {
-		cs.isIArgs = true
-	}
 
-	for idx := range ti.fields {
-		fmp := &ti.fields[idx]
-		cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-			fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
-			return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
-		})
+	if !cs.isEmptyArgs {
+		if reflect.PointerTo(ti.modeltype).Implements(typeofIArgs) {
+			cs.isIArgs = true
+		}
+
+		for idx := range ti.fields {
+			fmp := &ti.fields[idx]
+			cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
+				fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
+				return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
+			})
+		}
 	}
 }
 
@@ -100,14 +104,20 @@ func (cs *_CommonStmt[Args, Self]) getsv(ctx context.Context) *sql.Stmt {
 }
 
 func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
+	if cs.isEmptyArgs {
+		return nil
+	}
+
 	var qargs []any
 	if cs.isIArgs {
 		nargs := ((any)(v).(IArgs)).NamedArgs()
+		qargs = make([]any, 0, len(nargs))
 		for _, v := range nargs {
 			qargs = append(qargs, v)
 		}
 	} else {
 		ptr := unsafe.Pointer(v)
+		qargs = make([]any, 0, len(cs.argvGetters))
 		for _, getter := range cs.argvGetters {
 			qargs = append(qargs, getter(ptr))
 		}
@@ -167,7 +177,7 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("sqlx: can not find")
+			return fmt.Errorf("sqlx: can not find dest ptr for `%s`", name)
 		}
 	}
 

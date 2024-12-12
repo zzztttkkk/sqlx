@@ -2,7 +2,7 @@ package sqlx
 
 import (
 	"fmt"
-	"unsafe"
+	"reflect"
 )
 
 type indexBuilder[T any] struct {
@@ -35,8 +35,8 @@ func (builder *indexBuilder[T]) Option(k string, val any) *indexBuilder[T] {
 	return builder
 }
 
-func (build *indexBuilder[T]) Field(ptr unsafe.Pointer, order OrderKind, opts map[string]any) *indexBuilder[T] {
-	field, ok := build.table.fieldbyptr(ptr)
+func (build *indexBuilder[T]) Field(ptr any, order OrderKind, opts map[string]any) *indexBuilder[T] {
+	field, ok := build.table.fieldbyptr(reflect.ValueOf(ptr).UnsafePointer())
 	if !ok {
 		panic(fmt.Errorf(
 			"sqlx: failed to get field metainfo through pointer when creating index. Did you set all the fields ? or pass a wrong pointer, TableType(%s), IndexName(%s)",

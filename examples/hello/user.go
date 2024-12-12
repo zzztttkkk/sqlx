@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"unsafe"
 
 	"github.com/zzztttkkk/sqlx"
 	"github.com/zzztttkkk/sqlx/sqltypes"
@@ -34,15 +33,15 @@ type User struct {
 func init() {
 	mptr := sqlx.Mptr[User]()
 	sqlx.Table[User]().
-		DDL().
+		Scheme().
 		Tablename("account_user").
 		Mixed(&CommonMix{}).
 		Field(sqltypes.Varchar(&mptr.Name, 32).Unique().Build()).
 		Field(sqltypes.Varchar(&mptr.Password, 155).Build())
 
-	sqltypes.Varchar(&mptr.Email, 64).Name("email").Build().AddToDdl(sqlx.Table[User]().DDL())
+	sqltypes.Varchar(&mptr.Email, 64).Name("email").Build().AddToScheme(sqlx.Table[User]().Scheme())
 
-	sqlx.Index[User]("email_index").Field(unsafe.Pointer(&mptr.Email), 0, nil)
+	sqlx.Index[User]("email_index").Field(&mptr.Email, 0, nil)
 }
 
 type Post struct {
@@ -54,6 +53,6 @@ type Post struct {
 
 func init() {
 	mptr := sqlx.Mptr[Post]()
-	sqlx.Table[Post]().DDL().Tablename("post").Mixed(&CommonMix{})
-	sqltypes.Int(&mptr.Uid).Name("uid").Build().AddToDdl(sqlx.Table[Post]().DDL())
+	sqlx.Table[Post]().Scheme().Tablename("post").Mixed(&CommonMix{})
+	sqltypes.Int(&mptr.Uid).Name("uid").Build().AddToScheme(sqlx.Table[Post]().Scheme())
 }
