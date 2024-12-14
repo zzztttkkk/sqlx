@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/zzztttkkk/reflectx"
 )
 
 type _Scheme[T any] struct {
@@ -16,8 +18,8 @@ type ischeme interface {
 }
 
 func (scheme *_Scheme[T]) addfield(field SqlField) {
-	fp := scheme.table.mustfieldbyptr(field.Ptr)
-	fp.setmeta(field.Metainfo)
+	fp := scheme.table.FieldByUnsafePtr(field.Ptr)
+	fp.Meta = field.Metainfo
 }
 
 func (scheme *_Scheme[T]) Field(field SqlField) *_Scheme[T] {
@@ -35,9 +37,9 @@ func (scheme *_Scheme[T]) Mixed(ptr IMixed) *_Scheme[T] {
 	if pt.Kind() != reflect.Struct {
 		panic(fmt.Errorf("sqlx: mixed is not a struct type, %s", pt))
 	}
-	mt := scheme.table.modeltype
-	mp := scheme.table.modelptr
-	mbegin := scheme.table.ptrnum
+	mt := scheme.table.GoType
+	mp := scheme.table.PtrAny
+	mbegin := scheme.table.PtrNum
 	mv := reflect.ValueOf(mp).Elem()
 
 	idx := -1
@@ -48,20 +50,20 @@ func (scheme *_Scheme[T]) Mixed(ptr IMixed) *_Scheme[T] {
 				idx = i
 				continue
 			}
-			panic(fmt.Errorf("sqlx: repeatedly mix same type, %s, %s", scheme.table.modeltype, pt))
+			panic(fmt.Errorf("sqlx: repeatedly mix same type, %s, %s", scheme.table.GoType, pt))
 		}
 		continue
 	}
 	if idx < 0 {
-		panic(fmt.Errorf("sqlx: has no mix type, %s, %s", scheme.table.modeltype, pt))
+		panic(fmt.Errorf("sqlx: has no mix type, %s, %s", scheme.table.GoType, pt))
 	}
 	mmoffset := int64(uintptr(mv.Field(idx).Addr().Pointer())) - mbegin
 
 	var begin = int64(uintptr(reflect.ValueOf(ptr).Pointer()))
 	for _, mf := range ptr.MixedFields() {
 		offset := int64(uintptr(mf.Ptr)) - begin + mmoffset
-		fp := scheme.table.mustfieldbyoffset(offset)
-		fp.setmeta(mf.Metainfo)
+		fp := scheme.table.FieldByOffset(offset)
+		fp.Meta = mf.Metainfo
 	}
 	return scheme
 }
@@ -76,26 +78,26 @@ func (scheme *_Scheme[T]) Option(k string, v any) *_Scheme[T] {
 
 type TableMetainfo struct {
 	Name    string
-	Fields  []*FieldMetainfo
+	Fields  []*DdlOptions
 	Indexes []*IndexMetainfo
 	Options map[string]any
 }
 
 func (scheme *_Scheme[T]) Finish() *TableMetainfo {
-	var nfs []_Field
-	for _, f := range scheme.table.fields {
-		if f.Metainfo == nil {
+	var nfs []reflectx.Field[DdlOptions]
+	for _, f := range scheme.table.Fields {
+		if f.Meta == nil {
 			continue
 		}
 		nfs = append(nfs, f)
 	}
-	scheme.table.fields = nfs
+	scheme.table.Fields = nfs
 	tmi := &TableMetainfo{
 		Name:    scheme.name,
 		Options: scheme.table.options,
 	}
-	for _, f := range scheme.table.fields {
-		tmi.Fields = append(tmi.Fields, f.Metainfo)
+	for _, f := range scheme.table.Fields {
+		tmi.Fields = append(tmi.Fields, f.Meta)
 	}
 	for _, idx := range scheme.table.indexes {
 		tmi.Indexes = append(tmi.Indexes, idx)
@@ -105,7 +107,7 @@ func (scheme *_Scheme[T]) Finish() *TableMetainfo {
 
 type SqlField struct {
 	Ptr      unsafe.Pointer
-	Metainfo *FieldMetainfo
+	Metainfo *DdlOptions
 }
 
 func (sf SqlField) AddToScheme(scheme ischeme) {

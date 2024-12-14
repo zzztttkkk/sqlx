@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"sync"
 	"unsafe"
+
+	"github.com/zzztttkkk/reflectx"
 )
 
 type IScanable interface {
@@ -39,21 +41,21 @@ func (cs *_CommonStmt[Args, Self]) self() *Self {
 }
 
 func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
-	ti := gettypeinfo[Args](nil)
-	if len(ti.fields) < 1 {
+	ti := reflectx.TypeInfoOf[Args, DdlOptions]()
+	if len(ti.Fields) < 1 {
 		cs.isEmptyArgs = true
 	}
 	cs.sql = sqltxt
 
 	if !cs.isEmptyArgs {
-		if reflect.PointerTo(ti.modeltype).Implements(typeofIArgs) {
+		if reflect.PointerTo(ti.GoType).Implements(typeofIArgs) {
 			cs.isIArgs = true
 		} else {
-			for idx := range ti.fields {
-				fmp := &ti.fields[idx]
+			for idx := range ti.Fields {
+				fmp := &ti.Fields[idx]
 				cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
 					fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
-					return sql.Named(fmp.Metainfo.Name, fptrv.Elem().Interface())
+					return sql.Named(fmp.Name, fptrv.Elem().Interface())
 				})
 			}
 		}
@@ -127,7 +129,7 @@ func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
 
 type _SelectStmt[Args any, Scanable any] struct {
 	_CommonStmt[Args, _SelectStmt[Args, Scanable]]
-	scanfields  []_Field
+	scanfields  []reflectx.Field[DdlOptions]
 	constructor func() *Scanable
 	lengthhint  int
 
@@ -137,15 +139,15 @@ type _SelectStmt[Args any, Scanable any] struct {
 }
 
 func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable) *_SelectStmt[Args, Scanable] {
-	var ti = gettypeinfo[Scanable](nil)
-	if len(ti.fields) < 1 {
-		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.modeltype))
+	var ti = reflectx.TypeInfoOf[Scanable, DdlOptions]()
+	if len(ti.Fields) < 1 {
+		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.GoType))
 	}
 
 	obj := &_SelectStmt[Args, Scanable]{
 		constructor: constructor,
-		scanfields:  ti.fields,
-		isIScanable: reflect.PointerTo(ti.modeltype).Implements(typeofIScanable),
+		scanfields:  ti.Fields,
+		isIScanable: reflect.PointerTo(ti.GoType).Implements(typeofIScanable),
 	}
 	obj.init(sql)
 	return obj
@@ -165,12 +167,12 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 		return err
 	}
 
-	var fs []*_Field
+	var fs []*reflectx.Field[DdlOptions]
 	for _, name := range names {
 		found := false
 		for idx := range stmt.scanfields {
 			fp := &stmt.scanfields[idx]
-			if fp.Metainfo.Name == name {
+			if fp.Name == name {
 				fs = append(fs, fp)
 				found = true
 				break

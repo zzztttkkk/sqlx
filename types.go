@@ -2,7 +2,8 @@ package sqlx
 
 import (
 	"database/sql"
-	"reflect"
+
+	"github.com/zzztttkkk/reflectx"
 )
 
 type IndexField struct {
@@ -26,7 +27,7 @@ type IndexMetainfo struct {
 	Options map[string]any
 }
 
-type FieldDdlOptions struct {
+type DdlOptions struct {
 	SqlType      string
 	SqlTypeArgs  []any
 	PrimaryKey   bool
@@ -39,24 +40,6 @@ type FieldDdlOptions struct {
 	AutoIncr     bool
 }
 
-type FieldMetainfo struct {
-	Name       string
-	DdlOptions FieldDdlOptions
-}
-
-type _Field struct {
-	Offset    int64
-	Field     reflect.StructField
-	Metainfo  *FieldMetainfo
-}
-
-func (f *_Field) setmeta(meta *FieldMetainfo) {
-	if f.Metainfo == nil {
-		f.Metainfo = meta
-		return
-	}
-	if meta.Name != "" {
-		f.Metainfo.Name = meta.Name
-	}
-	f.Metainfo.DdlOptions = meta.DdlOptions
+func init() {
+	reflectx.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json")
 }

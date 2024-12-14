@@ -60,73 +60,63 @@ func (builder *typecommonBuilder[T, S]) CheckExpr(expr string) *S {
 	return builder.self()
 }
 
-func (builder *typecommonBuilder[T, S]) Name(name string) *S {
-	builder.pairs = append(builder.pairs, pair{"name", name})
-	return builder.self()
-}
-
 func (builder *typecommonBuilder[T, S]) Comment(comment string) *S {
 	builder.pairs = append(builder.pairs, pair{"comment", comment})
 	return builder.self()
 }
 
 func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
-	ins := &sqlx.FieldMetainfo{}
+	ins := &sqlx.DdlOptions{}
 
 	for _, pair := range builder.pairs {
 		switch pair.key {
-		case "name":
-			{
-				ins.Name = pair.val.(string)
-				break
-			}
 		case "unqiue":
 			{
-				ins.DdlOptions.Unique = true
+				ins.Unique = true
 				break
 			}
 		case "nullable":
 			{
-				ins.DdlOptions.Nullable = true
+				ins.Nullable = true
 				break
 			}
 		case "default":
 			{
-				ins.DdlOptions.DefaultValue.Valid = true
-				ins.DdlOptions.DefaultValue.V = pair.val
+				ins.DefaultValue.Valid = true
+				ins.DefaultValue.V = pair.val
 				break
 			}
 		case "defaultexpr":
 			{
-				ins.DdlOptions.DefaultExpr.Valid = true
-				ins.DdlOptions.DefaultExpr.V = pair.val.(string)
+				ins.DefaultExpr.Valid = true
+				ins.DefaultExpr.V = pair.val.(string)
 				break
 			}
 		case "autoincr":
 			{
-				ins.DdlOptions.AutoIncr = true
+				ins.AutoIncr = true
 				break
 			}
 		case "primary":
 			{
-				ins.DdlOptions.PrimaryKey = true
+				ins.PrimaryKey = true
 				break
 			}
 		case "check":
 			{
-				ins.DdlOptions.CheckExpr = pair.val.(string)
+				ins.CheckExpr = pair.val.(string)
 				break
 			}
 		case "comment":
 			{
-				ins.DdlOptions.Comment = pair.val.(string)
+				ins.Comment = pair.val.(string)
 				break
 			}
 		case "sqltype":
 			{
 				st := pair.val.(sqltype)
-				ins.DdlOptions.SqlType = st.kind
-				ins.DdlOptions.SqlTypeArgs = st.args
+				ins.SqlType = st.kind
+				ins.SqlTypeArgs = st.args
 				break
 			}
 		}
