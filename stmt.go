@@ -54,8 +54,8 @@ func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
 			for idx := range ti.Fields {
 				fmp := &ti.Fields[idx]
 				cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-					fptrv := reflect.NewAt(fmp.Field.Type, unsafe.Add(ptr, fmp.Offset))
-					return sql.Named(fmp.Name, fptrv.Elem().Interface())
+					fv := fmp.PtrGetter()(ptr)
+					return sql.Named(fmp.Name, reflect.ValueOf(fv).Elem().Interface())
 				})
 			}
 		}
@@ -184,9 +184,7 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 	}
 
 	for _, fp := range fs {
-		stmt.fptrGetters = append(stmt.fptrGetters, func(ins unsafe.Pointer) any {
-			return reflect.NewAt(fp.Field.Type, unsafe.Add(ins, fp.Offset)).Interface()
-		})
+		stmt.fptrGetters = append(stmt.fptrGetters, fp.PtrGetter())
 	}
 	return nil
 }
