@@ -250,9 +250,9 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Ar
 	var tmps []any = make([]any, len(stmt.fptrGetters))
 	for rows.Next() {
 		ele := stmt.constructor()
-		ptrnum := unsafe.Pointer(ele)
-		for idx, geter := range stmt.fptrGetters {
-			tmps[idx] = geter(ptrnum)
+		eleptr := unsafe.Pointer(ele)
+		for idx, getter := range stmt.fptrGetters {
+			tmps[idx] = getter(eleptr)
 		}
 		err = rows.Scan(tmps...)
 		if err != nil {
