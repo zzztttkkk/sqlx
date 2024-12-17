@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 
-	"github.com/zzztttkkk/reflectx"
+	lion "github.com/zzztttkkk/reflectx"
 	"github.com/zzztttkkk/sqlx"
 	"github.com/zzztttkkk/sqlx/sqltypes"
 )
@@ -14,15 +14,14 @@ type CommonMix struct {
 	DeletedAt sql.Null[int64] `db:"deleted_at"`
 }
 
-func (c *CommonMix) MixedFields() []sqlx.SqlField {
-	return []sqlx.SqlField{
-		sqltypes.Int(&c.Id).Primary().AutoIncr().Build(),
-		sqltypes.Int(&c.CreatedAt).DefaultExpr("unix_timestamp()").Build(),
-		sqltypes.NullableInt(&c.DeletedAt).Nullable().Build(),
-	}
-}
+func init() {
+	mptr := lion.Ptr[CommonMix]()
+	schema := sqlx.Type[CommonMix]().Scheme()
 
-var _ sqlx.IMixed = (*CommonMix)(nil)
+	sqltypes.Int(&mptr.Id).Primary().Unique().AutoIncr().Build().AddToScheme(schema)
+	sqltypes.Int(&mptr.CreatedAt).DefaultExpr("unix_timestamp()").Build().AddToScheme(schema)
+	sqltypes.NullableInt(&mptr.DeletedAt).Nullable().Build().AddToScheme(schema)
+}
 
 type User struct {
 	CommonMix
@@ -32,16 +31,15 @@ type User struct {
 }
 
 func init() {
-	mptr := reflectx.Ptr[User]()
+	mptr := lion.Ptr[User]()
 
-	sqlx.Table[User]().
+	sqlx.Type[User]().
 		Scheme().
 		Tablename("account_user").
-		Mixed(&CommonMix{}).
 		Field(sqltypes.Varchar(&mptr.Name, 32).Unique().Build()).
 		Field(sqltypes.Varchar(&mptr.Password, 155).Build())
 
-	sqltypes.Varchar(&mptr.Email, 64).Build().AddToScheme(sqlx.Table[User]().Scheme())
+	sqltypes.Varchar(&mptr.Email, 64).Build().AddToScheme(sqlx.Type[User]().Scheme())
 	sqlx.Index[User]("email_index").Field(&mptr.Email, 0, nil)
 }
 
@@ -53,7 +51,7 @@ type Post struct {
 }
 
 func init() {
-	mptr := reflectx.Ptr[Post]()
-	sqlx.Table[Post]().Scheme().Tablename("post").Mixed(&CommonMix{})
-	sqltypes.Int(&mptr.Uid).Build().AddToScheme(sqlx.Table[Post]().Scheme())
+	mptr := lion.Ptr[Post]()
+	sqlx.Type[Post]().Scheme().Tablename("post")
+	sqltypes.Int(&mptr.Uid).Build().AddToScheme(sqlx.Type[Post]().Scheme())
 }

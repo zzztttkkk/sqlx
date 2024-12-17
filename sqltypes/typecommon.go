@@ -70,7 +70,7 @@ func (builder *typecommonBuilder[T, S]) Build() sqlx.SqlField {
 
 	for _, pair := range builder.pairs {
 		switch pair.key {
-		case "unqiue":
+		case "unique":
 			{
 				ins.Unique = true
 				break

@@ -6,7 +6,7 @@ import (
 	"github.com/zzztttkkk/reflectx"
 )
 
-type _Table[T any] struct {
+type _Type[T any] struct {
 	*reflectx.TypeInfo[DdlOptions]
 	scheme  *_Scheme[T]
 	options map[string]any
@@ -14,25 +14,25 @@ type _Table[T any] struct {
 }
 
 var (
-	tables = map[reflect.Type]any{}
+	types = map[reflect.Type]any{}
 )
 
-func Table[T any]() *_Table[T] {
+func Type[T any]() *_Type[T] {
 	modeltype := reflectx.Typeof[T]()
-	mv, ok := tables[modeltype]
+	mv, ok := types[modeltype]
 	if ok {
-		return mv.(*_Table[T])
+		return mv.(*_Type[T])
 	}
 
-	tab := &_Table[T]{
+	tab := &_Type[T]{
 		TypeInfo: reflectx.TypeInfoOf[T, DdlOptions](),
 		scheme:   new(_Scheme[T]),
 	}
-	tables[modeltype] = tab
+	types[modeltype] = tab
 	tab.scheme.table = tab
 	return tab
 }
 
-func (tab *_Table[T]) Scheme() *_Scheme[T] {
+func (tab *_Type[T]) Scheme() *_Scheme[T] {
 	return tab.scheme
 }

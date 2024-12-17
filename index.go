@@ -6,13 +6,13 @@ import (
 )
 
 type indexBuilder[T any] struct {
-	table *_Table[T]
+	table *_Type[T]
 	meta  *IndexMetainfo
 }
 
 func Index[T any](name string) *indexBuilder[T] {
 	ins := &indexBuilder[T]{
-		table: Table[T](),
+		table: Type[T](),
 		meta:  &IndexMetainfo{Name: name},
 	}
 	if ins.table.indexes == nil {
@@ -44,11 +44,11 @@ func (build *indexBuilder[T]) Field(ptr any, order OrderKind, opts map[string]an
 			build.meta.Name,
 		))
 	}
-	if field.Meta == nil {
-		panic(fmt.Errorf("sqlx: field metainfo is nil, TableType(%s), FieldName(%s)", build.table.GoType, field.Field.Name))
+	if field.Metainfo() == nil {
+		panic(fmt.Errorf("sqlx: field metainfo is nil, TableType(%s), FieldName(%s)", build.table.GoType, field.StructField().Name))
 	}
 	build.meta.Fields = append(build.meta.Fields, IndexField{
-		Name:    field.Name,
+		Name:    field.Name(),
 		Order:   order,
 		Options: opts,
 	})

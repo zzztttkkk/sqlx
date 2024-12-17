@@ -55,7 +55,7 @@ func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
 				fmp := &ti.Fields[idx]
 				cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
 					fv := fmp.PtrGetter()(ptr)
-					return sql.Named(fmp.Name, reflect.ValueOf(fv).Elem().Interface())
+					return sql.Named(fmp.Name(), reflect.ValueOf(fv).Elem().Interface())
 				})
 			}
 		}
@@ -172,7 +172,7 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 		found := false
 		for idx := range stmt.scanfields {
 			fp := &stmt.scanfields[idx]
-			if fp.Name == name {
+			if fp.Name() == name {
 				fs = append(fs, fp)
 				found = true
 				break

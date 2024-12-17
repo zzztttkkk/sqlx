@@ -28,6 +28,7 @@ type IndexMetainfo struct {
 }
 
 type DdlOptions struct {
+	Name         string
 	SqlType      string
 	SqlTypeArgs  []any
 	PrimaryKey   bool
