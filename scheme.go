@@ -3,7 +3,7 @@ package sqlx
 import (
 	"unsafe"
 
-	"github.com/zzztttkkk/reflectx"
+	"github.com/zzztttkkk/lion"
 )
 
 type _Scheme[T any] struct {
@@ -46,7 +46,7 @@ type TableMetainfo struct {
 }
 
 func (scheme *_Scheme[T]) Finish() *TableMetainfo {
-	var nfs []reflectx.Field[DdlOptions]
+	var nfs []lion.Field[DdlOptions]
 	for _, f := range scheme.table.Fields {
 		if f.Metainfo() == nil {
 			continue

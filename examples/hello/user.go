@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 
-	lion "github.com/zzztttkkk/reflectx"
+	"github.com/zzztttkkk/lion"
 	"github.com/zzztttkkk/sqlx"
 	"github.com/zzztttkkk/sqlx/sqltypes"
 )

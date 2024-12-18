@@ -9,20 +9,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/zzztttkkk/reflectx"
-)
-
-type IScanable interface {
-	FieldPtrs() []any
-}
-
-type IArgs interface {
-	NamedArgs() []sql.NamedArg
-}
-
-var (
-	typeofIScanable = reflect.TypeOf((*IScanable)(nil)).Elem()
-	typeofIArgs     = reflect.TypeOf((*IArgs)(nil)).Elem()
+	"github.com/zzztttkkk/lion"
 )
 
 type _CommonStmt[Args any, Self any] struct {
@@ -30,7 +17,6 @@ type _CommonStmt[Args any, Self any] struct {
 	stmts map[*sql.DB]*sql.Stmt
 	_stmt *sql.Stmt
 
-	isIArgs     bool
 	isEmptyArgs bool
 
 	argvGetters []func(ptr unsafe.Pointer) any
@@ -41,23 +27,19 @@ func (cs *_CommonStmt[Args, Self]) self() *Self {
 }
 
 func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
-	ti := reflectx.TypeInfoOf[Args, DdlOptions]()
+	ti := lion.TypeInfoOf[Args, DdlOptions]()
 	if len(ti.Fields) < 1 {
 		cs.isEmptyArgs = true
 	}
 	cs.sql = sqltxt
 
 	if !cs.isEmptyArgs {
-		if reflect.PointerTo(ti.GoType).Implements(typeofIArgs) {
-			cs.isIArgs = true
-		} else {
-			for idx := range ti.Fields {
-				fmp := &ti.Fields[idx]
-				cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-					fv := fmp.PtrGetter()(ptr)
-					return sql.Named(fmp.Name(), reflect.ValueOf(fv).Elem().Interface())
-				})
-			}
+		for idx := range ti.Fields {
+			fmp := &ti.Fields[idx]
+			cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
+				fv := fmp.PtrGetter()(ptr)
+				return sql.Named(fmp.Name(), reflect.ValueOf(fv).Elem().Interface())
+			})
 		}
 	}
 }
@@ -110,36 +92,26 @@ func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
 		return nil
 	}
 
-	var qargs []any
-	if cs.isIArgs {
-		nargs := ((any)(v).(IArgs)).NamedArgs()
-		qargs = make([]any, 0, len(nargs))
-		for _, v := range nargs {
-			qargs = append(qargs, v)
-		}
-	} else {
-		ptr := unsafe.Pointer(v)
-		qargs = make([]any, 0, len(cs.argvGetters))
-		for _, getter := range cs.argvGetters {
-			qargs = append(qargs, getter(ptr))
-		}
+	var qargs = make([]any, 0, len(cs.argvGetters))
+	ptr := unsafe.Pointer(v)
+	for _, getter := range cs.argvGetters {
+		qargs = append(qargs, getter(ptr))
 	}
 	return qargs
 }
 
 type _SelectStmt[Args any, Scanable any] struct {
 	_CommonStmt[Args, _SelectStmt[Args, Scanable]]
-	scanfields  []reflectx.Field[DdlOptions]
+	scanfields  []lion.Field[DdlOptions]
 	constructor func() *Scanable
 	lengthhint  int
 
-	isIScanable bool
 	lock        sync.RWMutex
 	fptrGetters []func(ins unsafe.Pointer) any
 }
 
 func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable) *_SelectStmt[Args, Scanable] {
-	var ti = reflectx.TypeInfoOf[Scanable, DdlOptions]()
+	var ti = lion.TypeInfoOf[Scanable, DdlOptions]()
 	if len(ti.Fields) < 1 {
 		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.GoType))
 	}
@@ -147,7 +119,6 @@ func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable
 	obj := &_SelectStmt[Args, Scanable]{
 		constructor: constructor,
 		scanfields:  ti.Fields,
-		isIScanable: reflect.PointerTo(ti.GoType).Implements(typeofIScanable),
 	}
 	obj.init(sql)
 	return obj
@@ -167,7 +138,7 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 		return err
 	}
 
-	var fs []*reflectx.Field[DdlOptions]
+	var fs []*lion.Field[DdlOptions]
 	for _, name := range names {
 		found := false
 		for idx := range stmt.scanfields {
@@ -201,23 +172,6 @@ func (stmt *_SelectStmt[Args, Scanable]) ensurePtrGetters(rows *sql.Rows) error 
 
 var ErrNoDB = errors.New("sqlx: can not get *sql.DB from context")
 
-func (stmt *_SelectStmt[Args, Scanable]) scanByInterface(rows *sql.Rows) ([]*Scanable, error) {
-	var vec []*Scanable
-	if stmt.lengthhint > 0 {
-		vec = make([]*Scanable, 0, stmt.lengthhint)
-	}
-	for rows.Next() {
-		var eleptr = stmt.constructor()
-		var iface = ((any)(eleptr)).(IScanable)
-		err := rows.Scan(iface.FieldPtrs()...)
-		if err != nil {
-			return nil, err
-		}
-		vec = append(vec, eleptr)
-	}
-	return vec, nil
-}
-
 func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Args) ([]*Scanable, error) {
 	var sv = stmt.getdbsv(ctx)
 
@@ -233,10 +187,6 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Ar
 		return nil, err
 	}
 	defer rows.Close()
-
-	if stmt.isIScanable {
-		return stmt.scanByInterface(rows)
-	}
 
 	if err = stmt.ensurePtrGetters(rows); err != nil {
 		return nil, err

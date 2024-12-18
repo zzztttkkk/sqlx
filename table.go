@@ -3,11 +3,11 @@ package sqlx
 import (
 	"reflect"
 
-	"github.com/zzztttkkk/reflectx"
+	"github.com/zzztttkkk/lion"
 )
 
 type _Type[T any] struct {
-	*reflectx.TypeInfo[DdlOptions]
+	*lion.TypeInfo[DdlOptions]
 	scheme  *_Scheme[T]
 	options map[string]any
 	indexes map[string]*IndexMetainfo
@@ -18,14 +18,14 @@ var (
 )
 
 func Type[T any]() *_Type[T] {
-	modeltype := reflectx.Typeof[T]()
+	modeltype := lion.Typeof[T]()
 	mv, ok := types[modeltype]
 	if ok {
 		return mv.(*_Type[T])
 	}
 
 	tab := &_Type[T]{
-		TypeInfo: reflectx.TypeInfoOf[T, DdlOptions](),
+		TypeInfo: lion.TypeInfoOf[T, DdlOptions](),
 		scheme:   new(_Scheme[T]),
 	}
 	types[modeltype] = tab

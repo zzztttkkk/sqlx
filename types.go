@@ -3,7 +3,7 @@ package sqlx
 import (
 	"database/sql"
 
-	"github.com/zzztttkkk/reflectx"
+	"github.com/zzztttkkk/lion"
 )
 
 type IndexField struct {
@@ -42,5 +42,5 @@ type DdlOptions struct {
 }
 
 func init() {
-	reflectx.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json")
+	lion.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json")
 }
