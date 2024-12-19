@@ -42,5 +42,5 @@ type DdlOptions struct {
 }
 
 func init() {
-	lion.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json")
+	lion.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json").Unexposed()
 }

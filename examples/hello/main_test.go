@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -11,10 +12,10 @@ import (
 )
 
 type SumArgs struct {
-	Num1 int64 `db:"num1"`
-	Num2 int64 `db:"num2"`
-	Num3 int64 `db:"num3"`
-	Num4 int64 `db:"num4"`
+	num1 int64 `db:"num1"`
+	num2 int64 `db:"num2"`
+	num3 int64 `db:"num3"`
+	num4 int64 `db:"num4"`
 }
 
 type Sum struct {
@@ -25,16 +26,24 @@ type Sum struct {
 }
 
 var (
-	addsql = "select @num1 + @num2 as val1, @num1 + @num3 as val2, @num1 + @num4 as val3, @num2 + @num3 as val4"
+	AddNoArgsSql = "select 12 + 13 as val1, 14 + 15 as val2, 125 + 42 as val3, 86 + 2 as val4"
+	AddArgsSql   = "select @num1 + @num2 as val1, @num1 + @num3 as val2, @num1 + @num4 as val3, @num2 + @num3 as val4"
 )
+
+func TestAutoArgs(t *testing.T) {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	defer db.Close()
+	stmt := sqlx.SelectStmt[SumArgs](AddArgsSql, func() *Sum { return &Sum{} }).MustPrepare(context.Background(), db)
+	args := SumArgs{rand.Int63n(100), rand.Int63n(100), rand.Int63n(100), rand.Int63n(100)}
+	fmt.Println(&args, stmt.MustQueryOne(context.Background(), &args))
+}
 
 func BenchmarkThisLib(b *testing.B) {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
-	stmt := sqlx.SelectStmt[SumArgs](addsql, func() *Sum { return &Sum{} }).MustPrepare(context.Background(), db)
+	stmt := sqlx.SelectStmt[struct{}](AddNoArgsSql, func() *Sum { return &Sum{} }).MustPrepare(context.Background(), db)
 	for i := 0; i < b.N; i++ {
-		args := SumArgs{rand.Int63n(100), rand.Int63n(100), rand.Int63n(100), rand.Int63n(100)}
-		stmt.MustQueryOne(context.Background(), &args)
+		stmt.MustQueryOne(context.Background(), nil)
 	}
 }
 
@@ -42,17 +51,9 @@ func BenchmarkJmSqlx(b *testing.B) {
 	db, _ := jmsqlx.Connect("sqlite3", ":memory:")
 	defer db.Close()
 
-	stmt, _ := db.PreparexContext(context.Background(), addsql)
-
+	stmt, _ := db.PreparexContext(context.Background(), AddNoArgsSql)
 	var sum Sum
-
 	for i := 0; i < b.N; i++ {
-		args := []any{
-			sql.Named("num1", rand.Int63n(100)),
-			sql.Named("num2", rand.Int63n(100)),
-			sql.Named("num3", rand.Int63n(100)),
-			sql.Named("num4", rand.Int63n(100)),
-		}
-		stmt.Get(&sum, args...)
+		stmt.Get(&sum)
 	}
 }

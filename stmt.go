@@ -172,17 +172,17 @@ func (stmt *_SelectStmt[Args, Scanable]) ensurePtrGetters(rows *sql.Rows) error 
 
 var ErrNoDB = errors.New("sqlx: can not get *sql.DB from context")
 
-func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Args) ([]*Scanable, error) {
+func (stmt *_SelectStmt[Args, Scanable]) rows(ctx context.Context, args *Args) (*sql.Rows, error) {
 	var sv = stmt.getdbsv(ctx)
-
 	txv := ctx.Value(ctxKeyForTx)
 	if txv != nil {
 		sv = (txv.(*sql.Tx)).StmtContext(ctx, sv)
-		// we do not need to close this stmt
-		// sql.Tx will do close when commit/rollback ==> go:src/database/sql/sql.go#2270 func closePrepared
 	}
+	return sv.QueryContext(ctx, stmt.expandArgs(args)...)
+}
 
-	rows, err := sv.QueryContext(ctx, stmt.expandArgs(args)...)
+func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Args) ([]*Scanable, error) {
+	rows, err := stmt.rows(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -213,19 +213,36 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Ar
 	return vec, nil
 }
 
-func (stmt *_SelectStmt[Args, Scanable]) MustQueryMany(ctx context.Context, args *Args) []*Scanable {
-	return must(stmt.QueryMany(ctx, args))
-}
-
 func (stmt *_SelectStmt[Args, Scanable]) QueryOne(ctx context.Context, args *Args) (*Scanable, error) {
-	vs, err := stmt.QueryMany(ctx, args)
+	rows, err := stmt.rows(ctx, args)
 	if err != nil {
 		return nil, err
 	}
-	if len(vs) < 1 {
+	defer rows.Close()
+
+	if !rows.Next() {
 		return nil, sql.ErrNoRows
 	}
-	return vs[0], nil
+
+	if err = stmt.ensurePtrGetters(rows); err != nil {
+		return nil, err
+	}
+
+	var tmps []any = make([]any, len(stmt.fptrGetters))
+	ele := stmt.constructor()
+	eleptr := unsafe.Pointer(ele)
+	for idx, getter := range stmt.fptrGetters {
+		tmps[idx] = getter(eleptr)
+	}
+	err = rows.Scan(tmps...)
+	if err != nil {
+		return nil, err
+	}
+	return ele, nil
+}
+
+func (stmt *_SelectStmt[Args, Scanable]) MustQueryMany(ctx context.Context, args *Args) []*Scanable {
+	return must(stmt.QueryMany(ctx, args))
 }
 
 func (stmt *_SelectStmt[Args, Scanable]) MustQueryOne(ctx context.Context, args *Args) *Scanable {
