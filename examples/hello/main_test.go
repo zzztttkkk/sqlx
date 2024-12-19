@@ -12,10 +12,10 @@ import (
 )
 
 type SumArgs struct {
-	num1 int64 `db:"num1"`
-	num2 int64 `db:"num2"`
-	num3 int64 `db:"num3"`
-	num4 int64 `db:"num4"`
+	num1 int64
+	num2 int64
+	num3 int64
+	num4 int64
 }
 
 type Sum struct {
