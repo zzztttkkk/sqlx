@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"unsafe"
 
@@ -36,9 +35,10 @@ func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
 	if !cs.isEmptyArgs {
 		for idx := range ti.Fields {
 			fmp := &ti.Fields[idx]
+			getter := fmp.Getter()
+			name := fmp.Name()
 			cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-				fv := fmp.PtrGetter()(ptr)
-				return sql.Named(fmp.Name(), reflect.ValueOf(fv).Elem().Interface())
+				return sql.Named(name, getter(ptr))
 			})
 		}
 	}
@@ -102,24 +102,19 @@ func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
 
 type _SelectStmt[Args any, Scanable any] struct {
 	_CommonStmt[Args, _SelectStmt[Args, Scanable]]
-	scanfields  []lion.Field[DdlOptions]
-	constructor func() *Scanable
-	lengthhint  int
+	scanfields []lion.Field[DdlOptions]
+	lengthhint int
 
 	lock        sync.RWMutex
 	fptrGetters []func(ins unsafe.Pointer) any
 }
 
-func SelectStmt[Args any, Scanable any](sql string, constructor func() *Scanable) *_SelectStmt[Args, Scanable] {
+func SelectStmt[Args any, Scanable any](sql string) *_SelectStmt[Args, Scanable] {
 	var ti = lion.TypeInfoOf[Scanable, DdlOptions]()
 	if len(ti.Fields) < 1 {
 		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.GoType))
 	}
-
-	obj := &_SelectStmt[Args, Scanable]{
-		constructor: constructor,
-		scanfields:  ti.Fields,
-	}
+	obj := &_SelectStmt[Args, Scanable]{scanfields: ti.Fields}
 	obj.init(sql)
 	return obj
 }
@@ -199,7 +194,7 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryMany(ctx context.Context, args *Ar
 
 	var tmps []any = make([]any, len(stmt.fptrGetters))
 	for rows.Next() {
-		ele := stmt.constructor()
+		ele := new(Scanable)
 		eleptr := unsafe.Pointer(ele)
 		for idx, getter := range stmt.fptrGetters {
 			tmps[idx] = getter(eleptr)
@@ -229,7 +224,7 @@ func (stmt *_SelectStmt[Args, Scanable]) QueryOne(ctx context.Context, args *Arg
 	}
 
 	var tmps []any = make([]any, len(stmt.fptrGetters))
-	ele := stmt.constructor()
+	ele := new(Scanable)
 	eleptr := unsafe.Pointer(ele)
 	for idx, getter := range stmt.fptrGetters {
 		tmps[idx] = getter(eleptr)
