@@ -3,6 +3,8 @@ package sqlx
 import (
 	"fmt"
 	"reflect"
+
+	"github.com/zzztttkkk/lion"
 )
 
 type indexBuilder[T any] struct {
@@ -44,11 +46,11 @@ func (build *indexBuilder[T]) Field(ptr any, order OrderKind, opts map[string]an
 			build.meta.Name,
 		))
 	}
-	if field.Metainfo() == nil {
+	if field.Metainfo(lion.Typeof[DdlOptions]()) == nil {
 		panic(fmt.Errorf("sqlx: field metainfo is nil, TableType(%s), FieldName(%s)", build.table.GoType, field.StructField().Name))
 	}
 	build.meta.Fields = append(build.meta.Fields, IndexField{
-		Name:    field.Name(),
+		Name:    field.Tag("db").Name,
 		Order:   order,
 		Options: opts,
 	})

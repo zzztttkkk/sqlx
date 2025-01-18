@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	jmsqlx "github.com/jmoiron/sqlx"
@@ -40,6 +41,15 @@ func BenchmarkAutoArgs(b *testing.B) {
 	}
 }
 
+func TestAutoArgs(t *testing.T) {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	defer db.Close()
+	stmt := sqlx.SelectStmt[SumArgs, Sum](AddArgsSql).MustPrepare(context.Background(), db)
+	args := SumArgs{23, 34, 55, 567}
+	sum := stmt.MustQueryOne(context.Background(), &args)
+	fmt.Println(sum)
+}
+
 func BenchmarkThisLib(b *testing.B) {
 	db, _ := sql.Open("sqlite3", ":memory:")
 	defer db.Close()
@@ -49,6 +59,13 @@ func BenchmarkThisLib(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		stmt.MustQueryOne(context.Background(), nil)
 	}
+}
+
+func TestThisLib(t *testing.T) {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	defer db.Close()
+	stmt := sqlx.SelectStmt[struct{}, Sum](AddNoArgsSql).MustPrepare(context.Background(), db)
+	fmt.Println(stmt.MustQueryOne(context.Background(), nil))
 }
 
 func BenchmarkJmSqlx(b *testing.B) {

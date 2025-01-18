@@ -7,7 +7,7 @@ import (
 )
 
 type _Type[T any] struct {
-	*lion.TypeInfo[DdlOptions]
+	*lion.TypeInfo
 	scheme  *_Scheme[T]
 	options map[string]any
 	indexes map[string]*IndexMetainfo
@@ -25,7 +25,7 @@ func Type[T any]() *_Type[T] {
 	}
 
 	tab := &_Type[T]{
-		TypeInfo: lion.TypeInfoOf[T, DdlOptions](),
+		TypeInfo: lion.TypeInfoOf[T](),
 		scheme:   new(_Scheme[T]),
 	}
 	types[modeltype] = tab

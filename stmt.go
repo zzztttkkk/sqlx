@@ -26,19 +26,17 @@ func (cs *_CommonStmt[Args, Self]) self() *Self {
 }
 
 func (cs *_CommonStmt[Args, Self]) init(sqltxt string) {
-	ti := lion.TypeInfoOf[Args, DdlOptions]()
-	if len(ti.Fields) < 1 {
+	ti := lion.TypeInfoOf[Args]()
+	fields := ti.AllFields()
+	if len(fields) < 1 {
 		cs.isEmptyArgs = true
 	}
 	cs.sql = sqltxt
-
 	if !cs.isEmptyArgs {
-		for idx := range ti.Fields {
-			fmp := &ti.Fields[idx]
-			getter := fmp.Getter()
-			name := fmp.Name()
+		for _, fmp := range fields {
+			name := fmp.Tag("db").Name
 			cs.argvGetters = append(cs.argvGetters, func(ptr unsafe.Pointer) any {
-				return sql.Named(name, getter(ptr))
+				return sql.Named(name, fmp.ValueOf(ptr))
 			})
 		}
 	}
@@ -102,7 +100,7 @@ func (cs *_CommonStmt[Args, Self]) expandArgs(v *Args) []any {
 
 type _SelectStmt[Args any, Scanable any] struct {
 	_CommonStmt[Args, _SelectStmt[Args, Scanable]]
-	scanfields []lion.Field[DdlOptions]
+	scanfields []*lion.Field
 	lengthhint int
 
 	lock        sync.RWMutex
@@ -110,11 +108,12 @@ type _SelectStmt[Args any, Scanable any] struct {
 }
 
 func SelectStmt[Args any, Scanable any](sql string) *_SelectStmt[Args, Scanable] {
-	var ti = lion.TypeInfoOf[Scanable, DdlOptions]()
-	if len(ti.Fields) < 1 {
+	var ti = lion.TypeInfoOf[Scanable]()
+	fields := ti.AllTagedFields("db")
+	if len(fields) < 1 {
 		panic(fmt.Errorf("sqlx: empty fields on type %s", ti.GoType))
 	}
-	obj := &_SelectStmt[Args, Scanable]{scanfields: ti.Fields}
+	obj := &_SelectStmt[Args, Scanable]{scanfields: fields}
 	obj.init(sql)
 	return obj
 }
@@ -133,12 +132,11 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 		return err
 	}
 
-	var fs []*lion.Field[DdlOptions]
+	var fs []*lion.Field
 	for _, name := range names {
 		found := false
-		for idx := range stmt.scanfields {
-			fp := &stmt.scanfields[idx]
-			if fp.Name() == name {
+		for _, fp := range stmt.scanfields {
+			if fp.Tag("db").Name == name {
 				fs = append(fs, fp)
 				found = true
 				break
@@ -150,7 +148,7 @@ func (stmt *_SelectStmt[Args, Scanable]) mkPtrGetters(rows *sql.Rows) error {
 	}
 
 	for _, fp := range fs {
-		stmt.fptrGetters = append(stmt.fptrGetters, fp.PtrGetter())
+		stmt.fptrGetters = append(stmt.fptrGetters, func(ins unsafe.Pointer) any { return fp.PtrOf(ins) })
 	}
 	return nil
 }

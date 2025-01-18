@@ -2,8 +2,6 @@ package sqlx
 
 import (
 	"database/sql"
-
-	"github.com/zzztttkkk/lion"
 )
 
 type IndexField struct {
@@ -39,8 +37,4 @@ type DdlOptions struct {
 	DefaultValue sql.Null[any]
 	Comment      string
 	AutoIncr     bool
-}
-
-func init() {
-	lion.RegisterOf[DdlOptions]().TagNames("db", "sqlx", "sql", "json").Unexposed()
 }

@@ -16,8 +16,8 @@ type ischeme interface {
 }
 
 func (scheme *_Scheme[T]) updatefield(field SqlField) {
-	fp := scheme.table.FieldByUnsafePtr(field.Ptr)
-	fp.UpdateMetainfo(field.Metainfo)
+	lf := scheme.table.FieldByPtr(field.Ptr)
+	lion.UpdateMetaFor(lf, field.Metainfo)
 }
 
 func (scheme *_Scheme[T]) Field(field SqlField) *_Scheme[T] {
@@ -46,22 +46,16 @@ type TableMetainfo struct {
 }
 
 func (scheme *_Scheme[T]) Finish() *TableMetainfo {
-	var nfs []lion.Field[DdlOptions]
-	for _, f := range scheme.table.Fields {
-		if f.Metainfo() == nil {
-			continue
-		}
-		nfs = append(nfs, f)
-	}
-	scheme.table.Fields = nfs
 	tmi := &TableMetainfo{
 		Name:    scheme.name,
 		Options: scheme.table.options,
 	}
-	for _, f := range scheme.table.Fields {
-		mi := f.Metainfo()
-		mi.Name = f.Name()
-		tmi.Fields = append(tmi.Fields, mi)
+	for f := range scheme.table.Fields(&lion.FieldsOptions{TagName: "db", OnlyExported: true}) {
+		opts := lion.MetaOf[DdlOptions](f)
+		if opts == nil {
+			continue
+		}
+		tmi.Fields = append(tmi.Fields, opts)
 	}
 	for _, idx := range scheme.table.indexes {
 		tmi.Indexes = append(tmi.Indexes, idx)
